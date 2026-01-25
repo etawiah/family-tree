@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+instructions
+.env
+.env.local
+.DS_Store
+*.log
+
+# Cloudflare local development artifacts
+.wrangler
+.dev.vars
+.dev.vars.*

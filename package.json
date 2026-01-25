@@ -1,0 +1,33 @@
+{
+  "name": "family-tree-app",
+  "version": "1.0.0",
+  "description": "Family tree visualization and management app.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "scriptDescriptions": {
+    "dev": "Start the Vite dev server with hot module reload.",
+    "build": "Create the production-ready bundle in dist/ for Cloudflare Pages.",
+    "preview": "Serve the production build locally to verify output."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.20",
+    "browser-image-compression": "^2.0.2",
+    "lucide-react": "^0.563.0",
+    "react": "^19.2.3",
+    "react-d3-tree": "^3.6.6",
+    "react-dom": "^19.2.3",
+    "react-router-dom": "^7.13.0",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.2",
+    "vite": "^7.3.1"
+  }
+}
