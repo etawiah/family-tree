@@ -1,4 +1,4 @@
-name = "family-tree-api"
+name = "family-tree"
 main = "functions/api.js"
 compatibility_date = "2024-01-25"
 
