@@ -37,7 +37,8 @@ export default function LoginForm() {
 
   return (
     <section className="page">
-      <h1>Sign in</h1>
+      <h1>E. Tawiah Family Tree</h1>
+      <p className="subtitle">Sign in to continue.</p>
       <p>
         Enter your credentials. The server determines your access level and
         stores the JWT in localStorage for future requests.

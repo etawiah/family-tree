@@ -58,6 +58,11 @@ body {
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
+.subtitle {
+  margin-top: -0.5rem;
+  color: #475569;
+}
+
 .form-grid {
   display: grid;
   gap: 1rem;

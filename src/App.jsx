@@ -7,7 +7,7 @@ import ProtectedRoute from "./utils/ProtectedRoute.jsx";
 // Simple placeholder routes to validate navigation and layout wiring.
 const Home = () => (
   <section className="page">
-    <h1>Family Tree App</h1>
+    <h1>E. Tawiah Family Tree</h1>
     <p>
       This starter view confirms the Vite + React setup is working. Replace
       this with the tree visualization and onboarding flow.
@@ -26,7 +26,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="brand">Family Tree</div>
+        <div className="brand">E. Tawiah Family Tree</div>
         <nav className="nav-links">
           <Link to="/">Home</Link>
           <Link to="/tree">Tree</Link>
