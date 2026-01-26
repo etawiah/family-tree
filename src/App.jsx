@@ -7,14 +7,11 @@ import AddPersonPage from "./components/person/AddPersonPage.jsx";
 import AppHeader from "./components/layout/AppHeader.jsx";
 import EditPersonPage from "./components/person/EditPersonPage.jsx";
 
-// Simple placeholder routes to validate navigation and layout wiring.
+// Home page - redirects to tree or shows welcome message.
 const Home = () => (
   <section className="page">
     <h1>E. Tawiah Family Tree</h1>
-    <p>
-      This starter view confirms the Vite + React setup is working. Replace
-      this with the tree visualization and onboarding flow.
-    </p>
+    <p>Welcome to the family tree application.</p>
   </section>
 );
 

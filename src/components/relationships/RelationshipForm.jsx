@@ -64,6 +64,13 @@ export default function RelationshipForm({
     return value.charAt(0).toUpperCase() + value.slice(1);
   };
 
+  // Auto-detect next relationship_order for spouse relationships
+  const existingSpouseRelationships = useMemo(() => {
+    if (!isSpouseType || !person?.id) return [];
+    // We'll fetch this from the API when the form opens
+    return [];
+  }, [isSpouseType, person?.id]);
+
   useEffect(() => {
     if (!relationshipType) {
       return;
@@ -73,12 +80,84 @@ export default function RelationshipForm({
       setMarriageDate("");
       setDivorceDate("");
       setRelationshipOrder(1);
+    } else {
+      // Auto-suggest next relationship_order for spouse
+      // This will be enhanced when we fetch existing relationships
+      setRelationshipOrder(1);
     }
   }, [relationshipType, isSpouseType]);
 
+  // Fetch existing spouse relationships to auto-suggest order and check for overlaps
+  const [existingMarriages, setExistingMarriages] = useState([]);
+
   useEffect(() => {
-    setWarning(getAgeWarning());
-  }, [relationshipType, relatedPersonId, people, person]);
+    if (!isSpouseType || !person?.id) {
+      setExistingMarriages([]);
+      return;
+    }
+    
+    const fetchExistingMarriages = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/people/${person.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
+            },
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const spouseRels = (data.relationships || []).filter(
+            (rel) => rel.relationship_type === "spouse" || rel.relationship_type === "ex-spouse"
+          );
+          setExistingMarriages(spouseRels);
+          if (spouseRels.length > 0) {
+            const maxOrder = Math.max(...spouseRels.map((r) => r.relationship_order || 1));
+            setRelationshipOrder(maxOrder + 1);
+          } else {
+            setRelationshipOrder(1);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch existing marriages:", err);
+      }
+    };
+    
+    fetchExistingMarriages();
+  }, [isSpouseType, person?.id]);
+
+  useEffect(() => {
+    const ageWarning = getAgeWarning();
+    const marriageWarning = getMarriageWarning();
+    setWarning(ageWarning || marriageWarning);
+  }, [relationshipType, relatedPersonId, people, person, marriageDate, relationshipOrder]);
+
+  const getMarriageWarning = () => {
+    if (!isSpouseType || !person?.id || !marriageDate) return "";
+    
+    // Check for bigamy (multiple current spouses)
+    const currentSpouses = existingMarriages.filter(
+      (rel) => rel.relationship_type === "spouse" && !rel.divorce_date
+    );
+    if (currentSpouses.length > 0 && relationshipType === "spouse") {
+      return "Warning: Person has current spouse. Adding another will show bigamy. Continue?";
+    }
+    
+    // Check for marriage date overlaps
+    for (const existing of existingMarriages) {
+      if (!existing.marriage_date || !existing.divorce_date) continue;
+      const existingMarriage = new Date(existing.marriage_date);
+      const existingDivorce = new Date(existing.divorce_date);
+      const newMarriage = new Date(marriageDate);
+      
+      if (newMarriage >= existingMarriage && newMarriage <= existingDivorce) {
+        return "Warning: Marriage date overlaps with previous marriage. Is this correct?";
+      }
+    }
+    
+    return "";
+  };
 
   if (!person) {
     return null;
@@ -335,6 +414,11 @@ export default function RelationshipForm({
                   value={relationshipOrder}
                   onChange={(event) => setRelationshipOrder(Number(event.target.value))}
                 />
+                {existingMarriages.length > 0 ? (
+                  <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                    Existing marriages: {existingMarriages.length}. Suggested: {relationshipOrder}
+                  </span>
+                ) : null}
                 {errors.relationshipOrder ? (
                   <span className="form-error">{errors.relationshipOrder}</span>
                 ) : null}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import imageCompression from "browser-image-compression";
 import { getToken } from "../../services/auth.js";
 
@@ -72,17 +72,27 @@ export default function ImageUpload({
     await handleFile(file);
   };
 
+  const fileInputRef = useRef(null);
+
   return (
     <div className="image-upload">
       <label className="form-field">
         {label}
-        <input type="file" accept="image/*" onChange={handleInputChange} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleInputChange}
+          style={{ display: "none" }}
+        />
       </label>
 
       <div
         className="drop-zone"
         onDragOver={(event) => event.preventDefault()}
         onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        style={{ cursor: "pointer" }}
       >
         Drag & drop an image, or click to select.
       </div>

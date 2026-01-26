@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { getAccessLevel, isAuthenticated, logout } from "../../services/auth.js";
+import { getAccessLevel, hasRequiredAccess, isAuthenticated, logout } from "../../services/auth.js";
 
 /**
  * App-wide header with navigation, role indicator, and logout action.
@@ -20,7 +20,12 @@ export default function AppHeader() {
       <nav className="nav-links">
         <Link to="/">Home</Link>
         <Link to="/tree">Tree</Link>
-        <Link to="/admin">Admin</Link>
+        {hasRequiredAccess(accessLevel, "edit") ? (
+          <Link to="/people/new">Add Person</Link>
+        ) : null}
+        {hasRequiredAccess(accessLevel, "admin") ? (
+          <Link to="/admin">Admin</Link>
+        ) : null}
       </nav>
       <div className="header-actions">
         {isLoggedIn ? (
