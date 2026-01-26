@@ -11,3 +11,9 @@ instructions
 .wrangler
 .dev.vars
 .dev.vars.*
+
+.env
+.env.local
+
+.env
+.env.local
