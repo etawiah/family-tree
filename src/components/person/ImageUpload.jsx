@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import imageCompression from "browser-image-compression";
 import { getToken } from "../../services/auth.js";
 
@@ -16,10 +16,15 @@ export default function ImageUpload({
   personId,
   initialUrl = "",
   onUploadComplete,
+  onRemove,
 }) {
   const [preview, setPreview] = useState(initialUrl);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    setPreview(initialUrl || "");
+  }, [initialUrl]);
 
   const handleFile = useCallback(
     async (file) => {
@@ -83,6 +88,21 @@ export default function ImageUpload({
       </div>
 
       {preview ? <img src={preview} alt={`${label} preview`} /> : null}
+
+      {preview && onRemove ? (
+        <button
+          type="button"
+          className="ghost-button"
+          onClick={() => {
+            setPreview("");
+            setProgress(0);
+            setStatus("Photo removed (saved on update).");
+            onRemove?.();
+          }}
+        >
+          Remove photo
+        </button>
+      ) : null}
 
       {status ? (
         <div className="upload-status">

@@ -31,7 +31,7 @@ export default function PersonDetail({
         className="modal person-detail-modal"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="modal-header">
+        <header className="modal-header person-detail-header">
           <div>
             <h2>
               {person.first_name} {person.last_name}
@@ -40,9 +40,16 @@ export default function PersonDetail({
               {person.tree_side?.toUpperCase() || "UNKNOWN"} side
             </p>
           </div>
-          <button type="button" onClick={onClose}>
-            Close
-          </button>
+          <div className="person-detail-actions">
+            {canEdit ? (
+              <button type="button" className="ghost-button" onClick={onEdit}>
+                Edit Person
+              </button>
+            ) : null}
+            <button type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </header>
 
         <div className="modal-content">
@@ -93,9 +100,6 @@ export default function PersonDetail({
 
         {canEdit ? (
           <footer className="modal-footer">
-            <button type="button" onClick={onEdit}>
-              Edit Person
-            </button>
             <button type="button" onClick={onAddRelationship}>
               Add Relationship
             </button>

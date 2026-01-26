@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Tree from "react-d3-tree";
 import TreeControls from "./TreeControls.jsx";
 import TreeSelector from "./TreeSelector.jsx";
 import { PersonNode, TreeLegend } from "./PersonNode.jsx";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
 import PersonDetail from "../person/PersonDetail.jsx";
+import RelationshipForm from "../relationships/RelationshipForm.jsx";
 
 const DEFAULT_TRANSLATE = { x: 350, y: 120 };
 
@@ -26,8 +27,12 @@ export default function FamilyTreeView() {
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [relationships, setRelationships] = useState([]);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isRelationshipOpen, setIsRelationshipOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editSuccess, setEditSuccess] = useState("");
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const baseUrl = import.meta.env.VITE_API_URL;
 
@@ -35,6 +40,7 @@ export default function FamilyTreeView() {
     data: treeDataResponse,
     isLoading: isTreeLoading,
     error: treeError,
+    refetch: refetchTree,
   } = useQuery({
     queryKey: ["tree", treeSide],
     queryFn: async () => {
@@ -59,6 +65,7 @@ export default function FamilyTreeView() {
     data: peopleDataResponse,
     isLoading: isPeopleLoading,
     error: peopleError,
+    refetch: refetchPeople,
   } = useQuery({
     queryKey: ["people", treeSide],
     queryFn: async () => {
@@ -123,7 +130,7 @@ export default function FamilyTreeView() {
   };
 
   const handleCollapseAll = () => {
-    const allIds = collectNodeIds(data?.tree || []);
+    const allIds = collectNodeIds(treeDataResponse?.tree || []);
     setCollapsedIds(new Set(allIds));
   };
 
@@ -131,21 +138,20 @@ export default function FamilyTreeView() {
     setCollapsedIds(new Set());
   };
 
-  const handleSelectPerson = async (nodeDatum) => {
-    if (!nodeDatum || nodeDatum.isGroup) {
+  const loadPersonDetails = async (personId, personSnapshot) => {
+    if (!personId) {
       return;
     }
     setIsDetailLoading(true);
-    setSelectedPerson(nodeDatum.rawPerson || nodeDatum);
+    if (personSnapshot) {
+      setSelectedPerson(personSnapshot);
+    }
     try {
-      const response = await fetch(
-        `${baseUrl}/api/people/${nodeDatum.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
-          },
-        }
-      );
+      const response = await fetch(`${baseUrl}/api/people/${personId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
+        },
+      });
       const payload = await response.json();
       if (!response.ok) {
         throw new Error(payload?.error || "Failed to load person details.");
@@ -159,16 +165,56 @@ export default function FamilyTreeView() {
     }
   };
 
+  const handleSelectPerson = async (nodeDatum) => {
+    if (!nodeDatum || nodeDatum.isGroup) {
+      return;
+    }
+    await loadPersonDetails(nodeDatum.id, nodeDatum.rawPerson || nodeDatum);
+  };
+
   const handleSearch = (query) => {
     if (!query) {
       return;
     }
-    const match = findNodeByName(data?.tree || [], query);
+    const match = findNodeByName(treeDataResponse?.tree || [], query);
     if (match) {
       // Focus the tree around the matched node by nudging translate.
       setTranslate({ x: 350, y: 120 });
       setCollapsedIds(new Set());
     }
+  };
+
+  const handleRelationshipCreated = async () => {
+    await Promise.all([refetchTree(), refetchPeople()]);
+    if (selectedPerson?.id) {
+      await loadPersonDetails(selectedPerson.id);
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["tree", treeSide] });
+      queryClient.invalidateQueries({ queryKey: ["people", treeSide] });
+    }
+  };
+
+  const handleEditSubmit = async (values) => {
+    if (!selectedPerson?.id) {
+      return;
+    }
+    const response = await fetch(
+      `${baseUrl}/api/people/${selectedPerson.id}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
+        },
+        body: JSON.stringify(values),
+      }
+    );
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error || "Unable to update person.");
+    }
+    await Promise.all([refetchTree(), refetchPeople()]);
+    await loadPersonDetails(selectedPerson.id);
   };
 
   if (isTreeLoading || isPeopleLoading) {
@@ -242,16 +288,82 @@ export default function FamilyTreeView() {
         person={selectedPerson}
         relationships={relationships}
         isLoading={isDetailLoading}
-        onClose={() => setSelectedPerson(null)}
+        onClose={() => {
+          setSelectedPerson(null);
+          setIsEditOpen(false);
+          setIsRelationshipOpen(false);
+        }}
         onEdit={() => {
           if (selectedPerson?.id) {
-            navigate(`/people/${selectedPerson.id}/edit`);
+            setEditError("");
+            setEditSuccess("");
+            setIsEditOpen(true);
           }
         }}
         onAddRelationship={() => {
-          window.alert("Relationship editor is coming next.");
+          setIsRelationshipOpen(true);
         }}
       />
+
+      {isRelationshipOpen && selectedPerson ? (
+        <RelationshipForm
+          person={selectedPerson}
+          treeSide={treeSide}
+          people={peopleDataResponse?.people || []}
+          onClose={() => setIsRelationshipOpen(false)}
+          onSuccess={async () => {
+            await handleRelationshipCreated();
+            setIsRelationshipOpen(false);
+          }}
+        />
+      ) : null}
+
+      {isEditOpen && selectedPerson ? (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsEditOpen(false)}
+        >
+          <div className="modal edit-person-modal" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-header">
+              <div>
+                <h2>
+                  Edit Person: {selectedPerson.first_name}{" "}
+                  {selectedPerson.last_name}
+                </h2>
+                <p className="subtitle">Update details and photos.</p>
+              </div>
+              <button type="button" onClick={() => setIsEditOpen(false)}>
+                Close
+              </button>
+            </header>
+            <PersonForm
+              initialValues={selectedPerson}
+              submitLabel="Update Person"
+              warnOnTreeSideChange
+              hasRelationships={relationships.length > 0}
+              submitError={editError}
+              submitSuccess={editSuccess}
+              onSubmit={async (values) => {
+                setEditError("");
+                setEditSuccess("");
+                try {
+                  await handleEditSubmit(values);
+                  setEditSuccess("Person updated successfully.");
+                  setTimeout(() => {
+                    setIsEditOpen(false);
+                    setEditSuccess("");
+                  }, 700);
+                } catch (err) {
+                  setEditError(err.message || "Unable to update person.");
+                }
+              }}
+              onCancel={() => setIsEditOpen(false)}
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

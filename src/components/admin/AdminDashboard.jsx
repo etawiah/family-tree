@@ -21,12 +21,40 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [manualDescription, setManualDescription] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
+  const [photoCleanupError, setPhotoCleanupError] = useState("");
 
   const baseUrl = import.meta.env.VITE_API_URL;
   const authHeader = useMemo(() => {
     const token = getToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
+
+  const peopleMap = useMemo(() => {
+    const allPeople = [...peopleBySide.maternal, ...peopleBySide.paternal];
+    return allPeople.reduce((acc, person) => {
+      acc[person.id] = `${person.first_name} ${person.last_name}`;
+      return acc;
+    }, {});
+  }, [peopleBySide]);
+
+  const orphanedPhotos = useMemo(() => {
+    return (activity || [])
+      .filter((entry) => entry.action === "photos.unlinked")
+      .map((entry) => {
+        let details = {};
+        try {
+          details = JSON.parse(entry.details || "{}");
+        } catch {
+          details = {};
+        }
+        return {
+          id: entry.id,
+          created_at: entry.created_at,
+          user_id: entry.user_id,
+          ...details,
+        };
+      });
+  }, [activity]);
 
   useEffect(() => {
     const load = async () => {
@@ -163,6 +191,35 @@ export default function AdminDashboard() {
           headers: authHeader,
         });
         await reloadPeople();
+      },
+    });
+  };
+
+  const handleDeletePhoto = (photoUrl) => {
+    if (!photoUrl) {
+      return;
+    }
+    const filename = photoUrl.split("/").pop();
+    if (!filename) {
+      setPhotoCleanupError("Unable to determine filename from URL.");
+      return;
+    }
+    setConfirmAction({
+      title: "Delete photo from R2",
+      message: "Delete this image from storage? This cannot be undone.",
+      onConfirm: async () => {
+        setPhotoCleanupError("");
+        const response = await fetch(
+          `${baseUrl}/upload?filename=${encodeURIComponent(filename)}`,
+          {
+            method: "DELETE",
+            headers: authHeader,
+          }
+        );
+        if (!response.ok) {
+          const payload = await response.json();
+          setPhotoCleanupError(payload?.error || "Failed to delete photo.");
+        }
       },
     });
   };
@@ -320,6 +377,45 @@ export default function AdminDashboard() {
             </ul>
           </div>
         </div>
+      </section>
+
+      <section className="admin-section">
+        <h2>Photo Cleanup</h2>
+        <p>
+          Photos removed by editors are listed here for admin review. You can
+          delete from R2 or leave them in storage.
+        </p>
+        {photoCleanupError ? (
+          <p className="form-error">{photoCleanupError}</p>
+        ) : null}
+        <ul className="photo-cleanup-list">
+          {orphanedPhotos.length ? (
+            orphanedPhotos.map((entry) => (
+              <li key={entry.id}>
+                <div>
+                  <strong>{entry.type || "photo"}</strong>
+                  <p>
+                    Person:{" "}
+                    {entry.personId
+                      ? peopleMap[entry.personId] || `#${entry.personId}`
+                      : "Unknown"}
+                  </p>
+                  <p>Removed by: {entry.user_id}</p>
+                  <p>{entry.url}</p>
+                  <p>Logged at: {entry.created_at}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeletePhoto(entry.url)}
+                >
+                  Delete from R2
+                </button>
+              </li>
+            ))
+          ) : (
+            <li>No unlinked photos recorded.</li>
+          )}
+        </ul>
       </section>
 
       <section className="admin-section">

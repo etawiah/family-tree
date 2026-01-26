@@ -18,11 +18,22 @@ export default {
     const origin = request.headers.get("Origin");
     const corsHeaders = buildCorsHeaders(env, origin);
 
-    if (request.method !== "POST") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          ...corsHeaders,
+          "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
+          "Access-Control-Allow-Headers": "Authorization, Content-Type",
+        },
+      });
+    }
+
+    if (request.method !== "POST" && request.method !== "DELETE") {
       return jsonResponse({ error: "Method not allowed." }, 405, corsHeaders);
     }
 
-    // Verify authentication before allowing uploads.
+    // Verify authentication before allowing uploads or deletes.
     const authHeader = request.headers.get("Authorization") || "";
     const token = authHeader.replace("Bearer ", "");
     if (!token) {
@@ -71,6 +82,37 @@ export default {
         500,
         corsHeaders
       );
+    }
+
+    if (request.method === "DELETE") {
+      if (!hasRequiredAccess(user.accessLevel, "admin")) {
+        await logAction(env.DB, user.username, "upload.delete.denied", {
+          accessLevel: user.accessLevel,
+        });
+        return jsonResponse(
+          { error: "Admin access required to delete photos." },
+          403,
+          corsHeaders
+        );
+      }
+
+      const url = new URL(request.url);
+      const filename = url.searchParams.get("filename");
+      const fileUrl = url.searchParams.get("url");
+      const resolved = filename || extractFilename(fileUrl);
+      if (!resolved) {
+        return jsonResponse(
+          { error: "Missing filename to delete." },
+          400,
+          corsHeaders
+        );
+      }
+
+      await env.BUCKET.delete(resolved);
+      await logAction(env.DB, user.username, "upload.delete", {
+        filename: resolved,
+      });
+      return jsonResponse({ deleted: resolved }, 200, corsHeaders);
     }
 
     const formData = await request.formData();
@@ -237,6 +279,19 @@ function detectImageType(buffer) {
 
 function sanitizeSegment(value) {
   return String(value).replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
+function extractFilename(value) {
+  if (!value) {
+    return "";
+  }
+  try {
+    const parsed = new URL(value);
+    const path = parsed.pathname || "";
+    return path.split("/").pop() || "";
+  } catch {
+    return value.split("/").pop() || "";
+  }
 }
 
 function ensureTrailingSlash(value) {

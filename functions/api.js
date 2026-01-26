@@ -669,6 +669,21 @@ async function updatePerson(db, request, personId, user) {
     }
   }
 
+  const existing = await db
+    .prepare(
+      `
+      SELECT headshot_url, additional_photo_url
+      FROM people
+      WHERE id = ? AND is_deleted = 0
+    `
+    )
+    .bind(personId)
+    .first();
+
+  if (!existing) {
+    return jsonResponse({ error: "Person not found." }, 404);
+  }
+
   if (!updates.length) {
     return jsonResponse({ error: "No fields provided for update." }, 400);
   }
@@ -692,7 +707,42 @@ async function updatePerson(db, request, personId, user) {
 
   console.log("Updated person:", { personId });
   await logAction(db, user.username, "people.update", { personId });
-  return jsonResponse({ id: personId });
+
+  const normalized = (value) => (value ? String(value) : "");
+  const removedHeadshot =
+    "headshot_url" in body &&
+    normalized(existing.headshot_url) &&
+    normalized(body.headshot_url) !== normalized(existing.headshot_url);
+  const removedAdditional =
+    "additional_photo_url" in body &&
+    normalized(existing.additional_photo_url) &&
+    normalized(body.additional_photo_url) !==
+      normalized(existing.additional_photo_url);
+
+  if (removedHeadshot) {
+    await logAction(db, user.username, "photos.unlinked", {
+      personId,
+      type: "headshot",
+      url: existing.headshot_url,
+      replacement: body.headshot_url || null,
+    });
+  }
+
+  if (removedAdditional) {
+    await logAction(db, user.username, "photos.unlinked", {
+      personId,
+      type: "additional",
+      url: existing.additional_photo_url,
+      replacement: body.additional_photo_url || null,
+    });
+  }
+
+  const updated = await db
+    .prepare("SELECT * FROM people WHERE id = ? AND is_deleted = 0")
+    .bind(personId)
+    .first();
+
+  return jsonResponse({ person: updated });
 }
 
 /**

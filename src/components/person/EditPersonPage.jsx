@@ -10,6 +10,7 @@ export default function EditPersonPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [person, setPerson] = useState(null);
+  const [relationships, setRelationships] = useState([]);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const canDelete = hasRequiredAccess(getAccessLevel(), "admin");
@@ -31,6 +32,7 @@ export default function EditPersonPage() {
         }
         const data = await response.json();
         setPerson(data.person);
+        setRelationships(data.relationships || []);
       } catch (err) {
         setError(err.message);
       }
@@ -107,11 +109,16 @@ export default function EditPersonPage() {
 
   return (
     <section className="page">
-      <h1>Edit person</h1>
+      <h1>
+        Edit Person: {person.first_name} {person.last_name}
+      </h1>
       <p>Update any details below.</p>
       {error ? <p className="form-error">{error}</p> : null}
       <PersonForm
         initialValues={person}
+        submitLabel="Update Person"
+        warnOnTreeSideChange
+        hasRelationships={relationships.length > 0}
         onSubmit={handleSubmit}
         onCancel={() => navigate("/tree")}
       />

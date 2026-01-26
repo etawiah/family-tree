@@ -244,6 +244,24 @@ body {
   gap: 0.75rem;
 }
 
+.person-detail-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.ghost-button {
+  background: transparent;
+  border: 1px solid #cbd5f5;
+  color: #1f2937;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+}
+
+.edit-person-modal {
+  width: min(900px, 100%);
+}
+
 @keyframes slideIn {
   from {
     transform: translateX(12%);
@@ -261,6 +279,54 @@ body {
   align-items: center;
 }
 
+.relationship-modal {
+  max-width: 640px;
+}
+
+.relationship-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.relationship-form .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.relationship-form .checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.relationship-form .form-error {
+  color: #dc2626;
+  font-size: 0.9rem;
+}
+
+.relationship-form .form-warning {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+}
+
+.relationship-form .form-status {
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+}
+
+.relationship-form .form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -276,6 +342,13 @@ body {
 
 .detail-section {
   margin-bottom: 1.25rem;
+}
+
+.form-success {
+  color: #166534;
+  background: #dcfce7;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
 }
 
 .person-form {
@@ -371,6 +444,24 @@ body {
 }
 
 .people-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  background: #ffffff;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+}
+
+.photo-cleanup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.photo-cleanup-list li {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
