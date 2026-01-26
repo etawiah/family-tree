@@ -31,21 +31,40 @@ export default {
     const url = new URL(request.url);
     const method = request.method.toUpperCase();
     const path = url.pathname;
+    const origin = request.headers.get("Origin");
+    const corsHeaders = buildCorsHeaders(env, origin);
 
     // Validate that the D1 database binding is available.
     if (!db) {
       return jsonResponse(
         { error: "Database binding not configured. Expected env.DB." },
-        500
+        500,
+        corsHeaders
       );
+    }
+
+    // Handle CORS preflight for all API routes.
+    if (method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          ...corsHeaders,
+          "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        },
+      });
     }
 
     // Basic health endpoint to confirm the Worker is live.
     if (method === "GET" && path === "/api/health") {
-      return jsonResponse({
-        message: "Family Tree API is running.",
-        timestamp: new Date().toISOString(),
-      });
+      return jsonResponse(
+        {
+          message: "Family Tree API is running.",
+          timestamp: new Date().toISOString(),
+        },
+        200,
+        corsHeaders
+      );
     }
 
     try {
@@ -163,11 +182,16 @@ export default {
           path,
           reason: error.message,
         });
-        return jsonResponse({ error: error.message }, error.status || 401);
+        return jsonResponse(
+          { error: error.message },
+          error.status || 401,
+          corsHeaders
+        );
       }
       return jsonResponse(
         { error: "Unexpected server error. Please try again later." },
-        500
+        500,
+        corsHeaders
       );
     }
   },
@@ -392,11 +416,58 @@ async function parseJson(request) {
  * @param {number} status
  * @returns {Response}
  */
-function jsonResponse(body, status = 200) {
+function jsonResponse(body, status = 200, extraHeaders = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    // Default to wildcard CORS so all API responses are accessible.
+    // Specific origins can still override via extraHeaders.
+    "Access-Control-Allow-Origin": "*",
+    ...extraHeaders,
+  };
+
+  if (
+    headers["Access-Control-Allow-Origin"] !== "*" &&
+    !headers.Vary
+  ) {
+    headers.Vary = "Origin";
+  }
+
   return new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers,
   });
+}
+
+/**
+ * Build CORS headers for the current request origin.
+ *
+ * Configure allowed origins via env.CORS_ORIGINS (comma-separated).
+ * If unset, default to allowing the main Pages domains.
+ */
+function buildCorsHeaders(env, origin) {
+  const configured =
+    env.CORS_ORIGINS?.split(",").map((value) => value.trim()) || [];
+  const defaultOrigins = [
+    "https://family-tree.tawiah.net",
+    "https://family-tree-a6g.pages.dev",
+    "https://family-tree-app.pages.dev",
+  ];
+  const allowedOrigins = configured.length ? configured : defaultOrigins;
+
+  if (allowedOrigins.includes("*")) {
+    return {
+      "Access-Control-Allow-Origin": "*",
+    };
+  }
+
+  if (origin && allowedOrigins.includes(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Vary": "Origin",
+    };
+  }
+
+  return {};
 }
 
 /**

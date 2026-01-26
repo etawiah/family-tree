@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import Tree from "react-d3-tree";
 import TreeControls from "./TreeControls.jsx";
 import TreeSelector from "./TreeSelector.jsx";
 import { PersonNode, TreeLegend } from "./PersonNode.jsx";
+import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
 
 const DEFAULT_TRANSLATE = { x: 350, y: 120 };
 
@@ -20,6 +22,7 @@ export default function FamilyTreeView() {
   const [zoom, setZoom] = useState(0.8);
   const [translate, setTranslate] = useState(DEFAULT_TRANSLATE);
   const [collapsedIds, setCollapsedIds] = useState(new Set());
+  const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
 
   const baseUrl = import.meta.env.VITE_API_URL;
 
@@ -86,6 +89,28 @@ export default function FamilyTreeView() {
       <div className="page">
         <p>Unable to load the tree. {error.message}</p>
       </div>
+    );
+  }
+
+  if (!treeData.length) {
+    return (
+      <section className="page tree-page">
+        <TreeSelector treeSide={treeSide} onChange={setTreeSide} />
+        <div className="empty-state">
+          <h2>No people added yet</h2>
+          <p>
+            Start building the family tree by adding the first person on the{" "}
+            {treeSide} side.
+          </p>
+          {canEdit ? (
+            <Link className="button-link" to="/people/new">
+              Add first person
+            </Link>
+          ) : (
+            <p>Ask an editor or admin to add the first record.</p>
+          )}
+        </div>
+      </section>
     );
   }
 

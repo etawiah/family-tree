@@ -12,12 +12,10 @@ export default function LoginForm() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedLevel, setSelectedLevel] = useState("view");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = async (level) => {
-    setSelectedLevel(level);
+  const handleLogin = async () => {
     setError("");
     setIsSubmitting(true);
 
@@ -71,29 +69,8 @@ export default function LoginForm() {
       {error ? <p className="form-error">{error}</p> : null}
 
       <div className="button-row">
-        <button
-          type="button"
-          className={selectedLevel === "view" ? "active" : ""}
-          onClick={() => handleLogin("view")}
-          disabled={isSubmitting}
-        >
-          View Login
-        </button>
-        <button
-          type="button"
-          className={selectedLevel === "edit" ? "active" : ""}
-          onClick={() => handleLogin("edit")}
-          disabled={isSubmitting}
-        >
-          Edit Login
-        </button>
-        <button
-          type="button"
-          className={selectedLevel === "admin" ? "active" : ""}
-          onClick={() => handleLogin("admin")}
-          disabled={isSubmitting}
-        >
-          Admin Login
+        <button type="button" onClick={handleLogin} disabled={isSubmitting}>
+          Sign In
         </button>
       </div>
     </section>

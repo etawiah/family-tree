@@ -15,8 +15,11 @@ export default {
    * Stores the file in R2 and returns a public URL.
    */
   async fetch(request, env) {
+    const origin = request.headers.get("Origin");
+    const corsHeaders = buildCorsHeaders(env, origin);
+
     if (request.method !== "POST") {
-      return jsonResponse({ error: "Method not allowed." }, 405);
+      return jsonResponse({ error: "Method not allowed." }, 405, corsHeaders);
     }
 
     // Verify authentication before allowing uploads.
@@ -26,7 +29,11 @@ export default {
       await logAction(env.DB, "unknown", "upload.auth.failed", {
         reason: "missing_token",
       });
-      return jsonResponse({ error: "Missing Authorization header." }, 401);
+      return jsonResponse(
+        { error: "Missing Authorization header." },
+        401,
+        corsHeaders
+      );
     }
 
     if (!env.JWT_SECRET) {
@@ -40,18 +47,30 @@ export default {
       await logAction(env.DB, "unknown", "upload.auth.failed", {
         reason: "invalid_token",
       });
-      return jsonResponse({ error: "Invalid or expired token." }, 401);
+      return jsonResponse(
+        { error: "Invalid or expired token." },
+        401,
+        corsHeaders
+      );
     }
 
     if (!hasRequiredAccess(user.accessLevel, "edit")) {
       await logAction(env.DB, user.username, "upload.auth.denied", {
         accessLevel: user.accessLevel,
       });
-      return jsonResponse({ error: "Insufficient access level." }, 403);
+      return jsonResponse(
+        { error: "Insufficient access level." },
+        403,
+        corsHeaders
+      );
     }
 
     if (!env.BUCKET) {
-      return jsonResponse({ error: "R2 bucket binding is missing (env.BUCKET)." }, 500);
+      return jsonResponse(
+        { error: "R2 bucket binding is missing (env.BUCKET)." },
+        500,
+        corsHeaders
+      );
     }
 
     const formData = await request.formData();
@@ -63,7 +82,7 @@ export default {
       await logAction(env.DB, user.username, "upload.failed", {
         reason: "missing_file",
       });
-      return jsonResponse({ error: "No file provided." }, 400);
+      return jsonResponse({ error: "No file provided." }, 400, corsHeaders);
     }
 
     // Enforce a reasonable file size limit for safety.
@@ -73,7 +92,11 @@ export default {
         reason: "file_too_large",
         size: file.size,
       });
-      return jsonResponse({ error: "File too large. Max 1MB allowed." }, 413);
+      return jsonResponse(
+        { error: "File too large. Max 1MB allowed." },
+        413,
+        corsHeaders
+      );
     }
 
     // Read file into memory once for validation and upload.
@@ -83,7 +106,11 @@ export default {
       await logAction(env.DB, user.username, "upload.failed", {
         reason: "invalid_file_type",
       });
-      return jsonResponse({ error: "Invalid file type. JPEG, PNG, WebP only." }, 415);
+      return jsonResponse(
+        { error: "Invalid file type. JPEG, PNG, WebP only." },
+        415,
+        corsHeaders
+      );
     }
 
     // Filename: userId-personId-timestamp-type.jpg
@@ -99,7 +126,11 @@ export default {
       await logAction(env.DB, user.username, "upload.failed", {
         reason: "r2_error",
       });
-      return jsonResponse({ error: "R2 upload failed. Try again." }, 502);
+      return jsonResponse(
+        { error: "R2 upload failed. Try again." },
+        502,
+        corsHeaders
+      );
     }
 
     const publicBase = env.R2_PUBLIC_URL || "";
@@ -110,15 +141,55 @@ export default {
       personId,
       imageType,
     });
-    return jsonResponse({ url: publicUrl, filename });
+    return jsonResponse({ url: publicUrl, filename }, 200, corsHeaders);
   },
 };
 
-function jsonResponse(body, status = 200) {
+function jsonResponse(body, status = 200, extraHeaders = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    // Default to wildcard CORS so uploads can be called from the frontend.
+    "Access-Control-Allow-Origin": "*",
+    ...extraHeaders,
+  };
+
+  if (
+    headers["Access-Control-Allow-Origin"] !== "*" &&
+    !headers.Vary
+  ) {
+    headers.Vary = "Origin";
+  }
+
   return new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers,
   });
+}
+
+function buildCorsHeaders(env, origin) {
+  const configured =
+    env.CORS_ORIGINS?.split(",").map((value) => value.trim()) || [];
+  const defaultOrigins = [
+    "https://family-tree.tawiah.net",
+    "https://family-tree-a6g.pages.dev",
+    "https://family-tree-app.pages.dev",
+  ];
+  const allowedOrigins = configured.length ? configured : defaultOrigins;
+
+  if (allowedOrigins.includes("*")) {
+    return {
+      "Access-Control-Allow-Origin": "*",
+    };
+  }
+
+  if (origin && allowedOrigins.includes(origin)) {
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Vary": "Origin",
+    };
+  }
+
+  return {};
 }
 
 function hasRequiredAccess(userLevel, requiredLevel) {

@@ -3,6 +3,7 @@ import LoginForm from "./components/auth/LoginForm.jsx";
 import AdminDashboard from "./components/admin/AdminDashboard.jsx";
 import FamilyTreeView from "./components/tree/FamilyTreeView.jsx";
 import ProtectedRoute from "./utils/ProtectedRoute.jsx";
+import AddPersonPage from "./components/person/AddPersonPage.jsx";
 
 // Simple placeholder routes to validate navigation and layout wiring.
 const Home = () => (
@@ -48,6 +49,11 @@ export default function App() {
           {/* Admin-level access: full control panels. */}
           <Route element={<ProtectedRoute requiredLevel="admin" />}>
             <Route path="/admin" element={<AdminDashboard />} />
+          </Route>
+
+          {/* Edit-level access: create new people entries. */}
+          <Route element={<ProtectedRoute requiredLevel="edit" />}>
+            <Route path="/people/new" element={<AddPersonPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

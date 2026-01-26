@@ -20,3 +20,4 @@ crons = ["0 2 * * *"]  # Daily at 2 AM UTC
 # Environment variables
 [vars]
 ENVIRONMENT = "development"
+CORS_ORIGINS = "https://family-tree.tawiah.net,https://family-tree-a6g.pages.dev,https://family-tree-app.pages.dev"
