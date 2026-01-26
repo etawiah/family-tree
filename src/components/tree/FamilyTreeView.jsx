@@ -7,6 +7,7 @@ import TreeSelector from "./TreeSelector.jsx";
 import { PersonNode, TreeLegend } from "./PersonNode.jsx";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
 import PersonDetail from "../person/PersonDetail.jsx";
+import PersonForm from "../person/PersonForm.jsx";
 import RelationshipForm from "../relationships/RelationshipForm.jsx";
 
 const DEFAULT_TRANSLATE = { x: 350, y: 120 };
@@ -102,10 +103,15 @@ export default function FamilyTreeView() {
   const treeData = useMemo(() => {
     const roots = treeDataResponse?.tree || [];
     const people = peopleDataResponse?.people || [];
+    
+    console.log(`Tree data: ${roots.length} roots, ${people.length} total people for ${treeSide} side`);
+    
     const mappedRoots = roots.map((root) => mapNode(root, collapsedIds));
     const linkedIds = new Set();
     collectNodeIds(roots).forEach((id) => linkedIds.add(id));
     const unlinkedPeople = people.filter((person) => !linkedIds.has(person.id));
+
+    console.log(`Unlinked people: ${unlinkedPeople.length}`);
 
     const nodes = [...mappedRoots];
     if (unlinkedPeople.length) {
@@ -329,8 +335,8 @@ export default function FamilyTreeView() {
             <header className="modal-header">
               <div>
                 <h2>
-                  Edit Person: {selectedPerson.first_name}{" "}
-                  {selectedPerson.last_name}
+                  Edit Person: {selectedPerson?.first_name || ""}{" "}
+                  {selectedPerson?.last_name || ""}
                 </h2>
                 <p className="subtitle">Update details and photos.</p>
               </div>
@@ -338,29 +344,34 @@ export default function FamilyTreeView() {
                 Close
               </button>
             </header>
-            <PersonForm
-              initialValues={selectedPerson}
-              submitLabel="Update Person"
-              warnOnTreeSideChange
-              hasRelationships={relationships.length > 0}
-              submitError={editError}
-              submitSuccess={editSuccess}
-              onSubmit={async (values) => {
-                setEditError("");
-                setEditSuccess("");
-                try {
-                  await handleEditSubmit(values);
-                  setEditSuccess("Person updated successfully.");
-                  setTimeout(() => {
-                    setIsEditOpen(false);
-                    setEditSuccess("");
-                  }, 700);
-                } catch (err) {
-                  setEditError(err.message || "Unable to update person.");
-                }
-              }}
-              onCancel={() => setIsEditOpen(false)}
-            />
+            {selectedPerson ? (
+              <PersonForm
+                initialValues={selectedPerson}
+                submitLabel="Update Person"
+                warnOnTreeSideChange
+                hasRelationships={relationships.length > 0}
+                submitError={editError}
+                submitSuccess={editSuccess}
+                onSubmit={async (values) => {
+                  setEditError("");
+                  setEditSuccess("");
+                  try {
+                    await handleEditSubmit(values);
+                    setEditSuccess("Person updated successfully.");
+                    setTimeout(() => {
+                      setIsEditOpen(false);
+                      setEditSuccess("");
+                    }, 700);
+                  } catch (err) {
+                    console.error("Edit error:", err);
+                    setEditError(err.message || "Unable to update person.");
+                  }
+                }}
+                onCancel={() => setIsEditOpen(false)}
+              />
+            ) : (
+              <p>Loading person data...</p>
+            )}
           </div>
         </div>
       ) : null}

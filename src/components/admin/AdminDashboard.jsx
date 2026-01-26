@@ -184,7 +184,7 @@ export default function AdminDashboard() {
   const handleDeletePerson = (person) => {
     setConfirmAction({
       title: "Delete person",
-      message: `Delete ${person.first_name} ${person.last_name}? This is a soft delete.`,
+      message: `Delete ${person.first_name} ${person.last_name}? This will hide them from the tree but keep the record in the database (soft delete). You can restore them later if needed.`,
       onConfirm: async () => {
         await fetch(`${baseUrl}/api/people/${person.id}`, {
           method: "DELETE",
