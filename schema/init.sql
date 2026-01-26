@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS people (
   additional_photo_url TEXT,
   -- Gender identity selection for the UI.
   gender TEXT NOT NULL,
+  -- Soft delete flag to keep historical data while hiding records.
+  is_deleted BOOLEAN NOT NULL DEFAULT 0,
   -- Record creation timestamp (ISO 8601).
   created_at TEXT NOT NULL,
   -- Record update timestamp (ISO 8601).
@@ -85,6 +87,19 @@ CREATE TABLE IF NOT EXISTS snapshots (
   created_by TEXT NOT NULL
 );
 
+-- Activity log tracks non-sensitive admin and data operations.
+CREATE TABLE IF NOT EXISTS activity_log (
+  id INTEGER PRIMARY KEY,
+  -- User identifier (username or system tag).
+  user_id TEXT NOT NULL,
+  -- Short action label (e.g., "person.create").
+  action TEXT NOT NULL,
+  -- JSON payload with non-sensitive details.
+  details TEXT,
+  -- Record creation timestamp (ISO 8601).
+  created_at TEXT NOT NULL
+);
+
 -- Indexes improve lookup performance for the most common queries.
 -- Index on tree_side speeds up filtering by maternal/paternal views.
 CREATE INDEX IF NOT EXISTS idx_people_tree_side ON people (tree_side);
@@ -93,3 +108,6 @@ CREATE INDEX IF NOT EXISTS idx_people_tree_side ON people (tree_side);
 CREATE INDEX IF NOT EXISTS idx_relationships_tree_side ON relationships (tree_side);
 CREATE INDEX IF NOT EXISTS idx_relationships_person_id ON relationships (person_id);
 CREATE INDEX IF NOT EXISTS idx_relationships_related_person_id ON relationships (related_person_id);
+
+-- Index to accelerate activity log queries by date.
+CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log (created_at);

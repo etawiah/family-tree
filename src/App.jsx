@@ -1,4 +1,8 @@
 import { Link, Route, Routes } from "react-router-dom";
+import LoginForm from "./components/auth/LoginForm.jsx";
+import AdminDashboard from "./components/admin/AdminDashboard.jsx";
+import FamilyTreeView from "./components/tree/FamilyTreeView.jsx";
+import ProtectedRoute from "./utils/ProtectedRoute.jsx";
 
 // Simple placeholder routes to validate navigation and layout wiring.
 const Home = () => (
@@ -34,24 +38,17 @@ export default function App() {
         <Routes>
           {/* Placeholder routes to be replaced with real features. */}
           <Route path="/" element={<Home />} />
-          <Route
-            path="/tree"
-            element={
-              <section className="page">
-                <h1>Tree View</h1>
-                <p>Wire in `react-d3-tree` once data is available.</p>
-              </section>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <section className="page">
-                <h1>Admin Panel</h1>
-                <p>Manage users, roles, and audit logs from here.</p>
-              </section>
-            }
-          />
+          <Route path="/login" element={<LoginForm />} />
+
+          {/* View-level access: read-only tree view. */}
+          <Route element={<ProtectedRoute requiredLevel="view" />}>
+            <Route path="/tree" element={<FamilyTreeView />} />
+          </Route>
+
+          {/* Admin-level access: full control panels. */}
+          <Route element={<ProtectedRoute requiredLevel="admin" />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
