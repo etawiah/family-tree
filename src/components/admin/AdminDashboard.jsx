@@ -183,13 +183,32 @@ export default function AdminDashboard() {
 
   const handleDeletePerson = (person) => {
     setConfirmAction({
-      title: "Delete person",
+      title: "Soft Delete person",
       message: `Delete ${person.first_name} ${person.last_name}? This will hide them from the tree but keep the record in the database (soft delete). You can restore them later if needed.`,
       onConfirm: async () => {
         await fetch(`${baseUrl}/api/people/${person.id}`, {
           method: "DELETE",
           headers: authHeader,
         });
+        await reloadPeople();
+      },
+    });
+  };
+
+  const handleHardDeletePerson = (person) => {
+    setConfirmAction({
+      title: "Hard Delete person",
+      message: `PERMANENTLY delete ${person.first_name} ${person.last_name}? This will remove them and all their relationships from the database forever. This cannot be undone!`,
+      onConfirm: async () => {
+        const response = await fetch(`${baseUrl}/api/people/${person.id}?hard=true`, {
+          method: "DELETE",
+          headers: authHeader,
+        });
+        if (!response.ok) {
+          const payload = await response.json();
+          alert(payload?.error || "Failed to hard delete person.");
+          return;
+        }
         await reloadPeople();
       },
     });

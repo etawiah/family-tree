@@ -15,6 +15,7 @@ export default function PersonForm({
   hasRelationships = false,
   submitError = "",
   submitSuccess = "",
+  quickAddType = null,
 }) {
   const [formState, setFormState] = useState(() => ({
     tree_side: initialValues.tree_side || "maternal",
@@ -30,6 +31,8 @@ export default function PersonForm({
     gender: initialValues.gender || "other",
     headshot_url: initialValues.headshot_url || "",
     additional_photo_url: initialValues.additional_photo_url || "",
+    marriage_date: initialValues.marriage_date || "",
+    relationship_order: initialValues.relationship_order || 1,
   }));
 
   const [errors, setErrors] = useState({});
@@ -50,6 +53,8 @@ export default function PersonForm({
       gender: initialValues.gender || "other",
       headshot_url: initialValues.headshot_url || "",
       additional_photo_url: initialValues.additional_photo_url || "",
+      marriage_date: initialValues.marriage_date || "",
+      relationship_order: initialValues.relationship_order || 1,
     });
   }, [initialValues]);
 
@@ -229,6 +234,28 @@ export default function PersonForm({
           />
         </label>
       </div>
+
+      {quickAddType === "spouse" ? (
+        <div className="form-grid">
+          <label className="form-field">
+            Marriage Date
+            <input
+              type="date"
+              value={formState.marriage_date}
+              onChange={(event) => updateField("marriage_date", event.target.value)}
+            />
+          </label>
+          <label className="form-field">
+            Marriage Order (1st, 2nd, etc.)
+            <input
+              type="number"
+              min="1"
+              value={formState.relationship_order}
+              onChange={(event) => updateField("relationship_order", Number(event.target.value))}
+            />
+          </label>
+        </div>
+      ) : null}
 
       <div className="photo-upload">
         <ImageUpload

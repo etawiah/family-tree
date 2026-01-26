@@ -149,6 +149,10 @@ export default {
       if (peopleIdMatch && method === "DELETE") {
         const user = await requireAuth("admin")(request, env);
         const personId = Number(peopleIdMatch[1]);
+        const hardDelete = url.searchParams.get("hard") === "true";
+        if (hardDelete) {
+          return hardDeletePerson(db, personId, user);
+        }
         return softDeletePerson(db, personId, user);
       }
 
@@ -628,9 +632,17 @@ async function createPerson(db, request, user) {
     )
     .run();
 
-  console.log("Created person:", { personId: result.lastRowId });
-  await logAction(db, user.username, "people.create", { personId: result.lastRowId });
-  return jsonResponse({ id: result.lastRowId }, 201);
+  const personId = result.meta?.last_row_id || result.lastRowId;
+  console.log("Created person:", { personId, resultMeta: result.meta });
+  await logAction(db, user.username, "people.create", { personId });
+  
+  // Fetch the created person to return full object
+  const created = await db
+    .prepare("SELECT * FROM people WHERE id = ?")
+    .bind(personId)
+    .first();
+  
+  return jsonResponse({ id: personId, person: created }, 201);
 }
 
 /**
@@ -769,6 +781,34 @@ async function softDeletePerson(db, personId, user) {
   console.log("Soft deleted person:", { personId });
   await logAction(db, user.username, "people.delete", { personId });
   return jsonResponse({ id: personId });
+}
+
+/**
+ * DELETE /api/people/:id?hard=true
+ * Hard delete permanently removes the person and their relationships.
+ * Admin only.
+ */
+async function hardDeletePerson(db, personId, user) {
+  if (!Number.isInteger(personId)) {
+    return jsonResponse({ error: "Invalid person id." }, 400);
+  }
+
+  // Delete relationships first (both directions)
+  const deleteRelationships = db.prepare(
+    `DELETE FROM relationships WHERE person_id = ? OR related_person_id = ?`
+  );
+  await deleteRelationships.bind(personId, personId).run();
+
+  // Then delete the person
+  const stmt = db.prepare(`DELETE FROM people WHERE id = ?`);
+  const result = await stmt.bind(personId).run();
+  if (result.changes === 0) {
+    return jsonResponse({ error: "Person not found." }, 404);
+  }
+
+  console.log("Hard deleted person:", { personId });
+  await logAction(db, user.username, "people.hard_delete", { personId });
+  return jsonResponse({ id: personId, hardDeleted: true });
 }
 
 /**

@@ -23,9 +23,10 @@ export default function RelationshipForm({
   people = [],
   onClose,
   onSuccess,
+  preselectedType = "",
 }) {
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
-  const [relationshipType, setRelationshipType] = useState("");
+  const [relationshipType, setRelationshipType] = useState(preselectedType);
   const [relatedPersonId, setRelatedPersonId] = useState("");
   const [isBloodRelation, setIsBloodRelation] = useState(true);
   const [marriageDate, setMarriageDate] = useState("");

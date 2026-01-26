@@ -241,7 +241,62 @@ body {
 
 .person-detail-modal .modal-footer {
   display: flex;
+  flex-direction: column;
   gap: 0.75rem;
+}
+
+.quick-add-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.quick-add-buttons button {
+  flex: 1;
+  min-width: 100px;
+}
+
+.quick-add-dialog {
+  max-width: 500px;
+}
+
+.quick-add-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.choice-button {
+  padding: 1.25rem;
+  border: 2px solid #cbd5f5;
+  border-radius: 12px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.choice-button:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+}
+
+.choice-button strong {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+  color: #1f2937;
+}
+
+.choice-button p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.create-person-modal {
+  width: min(900px, 100%);
 }
 
 .person-detail-actions {

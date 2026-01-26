@@ -12,6 +12,9 @@ export default function PersonDetail({
   onClose,
   onEdit,
   onAddRelationship,
+  onQuickAddChild,
+  onQuickAddSpouse,
+  onQuickAddParent,
   isLoading = false,
 }) {
   if (!person) {
@@ -100,6 +103,17 @@ export default function PersonDetail({
 
         {canEdit ? (
           <footer className="modal-footer">
+            <div className="quick-add-buttons">
+              <button type="button" onClick={onQuickAddChild}>
+                Add Child
+              </button>
+              <button type="button" onClick={onQuickAddSpouse}>
+                Add Spouse
+              </button>
+              <button type="button" onClick={onQuickAddParent}>
+                Add Parent
+              </button>
+            </div>
             <button type="button" onClick={onAddRelationship}>
               Add Relationship
             </button>

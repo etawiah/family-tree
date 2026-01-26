@@ -9,6 +9,7 @@ import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
 import PersonDetail from "../person/PersonDetail.jsx";
 import PersonForm from "../person/PersonForm.jsx";
 import RelationshipForm from "../relationships/RelationshipForm.jsx";
+import QuickAddDialog from "../person/QuickAddDialog.jsx";
 
 const DEFAULT_TRANSLATE = { x: 350, y: 120 };
 
@@ -30,6 +31,9 @@ export default function FamilyTreeView() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isRelationshipOpen, setIsRelationshipOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [quickAddType, setQuickAddType] = useState(null);
+  const [isCreatePersonOpen, setIsCreatePersonOpen] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
@@ -223,6 +227,80 @@ export default function FamilyTreeView() {
     await loadPersonDetails(selectedPerson.id);
   };
 
+  const handleQuickAddChoice = (type, choice) => {
+    setIsQuickAddOpen(false);
+    if (choice === "link") {
+      setIsRelationshipOpen(true);
+    } else {
+      setIsCreatePersonOpen(true);
+    }
+  };
+
+  const handleCreatePersonAndLink = async (values, relationshipType) => {
+    if (!selectedPerson?.id) {
+      return;
+    }
+
+    // Create the person first
+    const createResponse = await fetch(`${baseUrl}/api/people`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
+      },
+      body: JSON.stringify(values),
+    });
+
+    const createPayload = await createResponse.json();
+    if (!createResponse.ok) {
+      throw new Error(createPayload?.error || "Unable to create person.");
+    }
+
+    const newPersonId = createPayload.id || createPayload.person?.id;
+    if (!newPersonId) {
+      console.error("Create response:", createPayload);
+      throw new Error("Person created but ID not returned. Check console for details.");
+    }
+
+    // Determine relationship details based on type
+    const isBloodRelation = relationshipType !== "spouse";
+    const relationshipData = {
+      tree_side: values.tree_side || selectedPerson.tree_side,
+      person_id: selectedPerson.id,
+      related_person_id: newPersonId,
+      relationship_type: relationshipType,
+      is_blood_relation: isBloodRelation,
+    };
+
+    // Add marriage-specific fields for spouse
+    if (relationshipType === "spouse") {
+      if (values.marriage_date) {
+        relationshipData.marriage_date = values.marriage_date;
+      }
+      relationshipData.relationship_order = values.relationship_order || 1;
+    }
+
+    // Create the relationship
+    const relResponse = await fetch(`${baseUrl}/api/relationships`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
+      },
+      body: JSON.stringify(relationshipData),
+    });
+
+    const relPayload = await relResponse.json();
+    if (!relResponse.ok) {
+      throw new Error(relPayload?.error || "Person created but relationship failed.");
+    }
+
+    // Refresh everything
+    await Promise.all([refetchTree(), refetchPeople()]);
+    await loadPersonDetails(selectedPerson.id);
+    setIsCreatePersonOpen(false);
+  };
+
   if (isTreeLoading || isPeopleLoading) {
     return <div className="page">Loading tree...</div>;
   }
@@ -298,6 +376,9 @@ export default function FamilyTreeView() {
           setSelectedPerson(null);
           setIsEditOpen(false);
           setIsRelationshipOpen(false);
+          setIsQuickAddOpen(false);
+          setIsCreatePersonOpen(false);
+          setQuickAddType(null);
         }}
         onEdit={() => {
           if (selectedPerson?.id) {
@@ -309,6 +390,18 @@ export default function FamilyTreeView() {
         onAddRelationship={() => {
           setIsRelationshipOpen(true);
         }}
+        onQuickAddChild={() => {
+          setQuickAddType("child");
+          setIsQuickAddOpen(true);
+        }}
+        onQuickAddSpouse={() => {
+          setQuickAddType("spouse");
+          setIsQuickAddOpen(true);
+        }}
+        onQuickAddParent={() => {
+          setQuickAddType("parent");
+          setIsQuickAddOpen(true);
+        }}
       />
 
       {isRelationshipOpen && selectedPerson ? (
@@ -316,10 +409,15 @@ export default function FamilyTreeView() {
           person={selectedPerson}
           treeSide={treeSide}
           people={peopleDataResponse?.people || []}
-          onClose={() => setIsRelationshipOpen(false)}
+          preselectedType={quickAddType || ""}
+          onClose={() => {
+            setIsRelationshipOpen(false);
+            setQuickAddType(null);
+          }}
           onSuccess={async () => {
             await handleRelationshipCreated();
             setIsRelationshipOpen(false);
+            setQuickAddType(null);
           }}
         />
       ) : null}
@@ -372,6 +470,62 @@ export default function FamilyTreeView() {
             ) : (
               <p>Loading person data...</p>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {isQuickAddOpen && quickAddType ? (
+        <QuickAddDialog
+          relationshipType={quickAddType}
+          onLinkExisting={() => {
+            setIsRelationshipOpen(true);
+            setIsQuickAddOpen(false);
+          }}
+          onCreateNew={() => {
+            setIsCreatePersonOpen(true);
+            setIsQuickAddOpen(false);
+          }}
+          onClose={() => setIsQuickAddOpen(false)}
+        />
+      ) : null}
+
+      {isCreatePersonOpen && selectedPerson && quickAddType ? (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsCreatePersonOpen(false)}
+        >
+          <div className="modal create-person-modal" onClick={(event) => event.stopPropagation()}>
+            <header className="modal-header">
+              <div>
+                <h2>
+                  Create {quickAddType === "child" ? "Child" : quickAddType === "spouse" ? "Spouse" : "Parent"} & Link
+                </h2>
+                <p className="subtitle">
+                  Add a new person and automatically connect to {selectedPerson.first_name} {selectedPerson.last_name}
+                </p>
+              </div>
+              <button type="button" onClick={() => setIsCreatePersonOpen(false)}>
+                Close
+              </button>
+            </header>
+            <PersonForm
+              initialValues={{
+                tree_side: selectedPerson.tree_side || "maternal",
+              }}
+              quickAddType={quickAddType}
+              submitLabel={`Create & Link as ${quickAddType === "child" ? "Child" : quickAddType === "spouse" ? "Spouse" : "Parent"}`}
+              onSubmit={async (values) => {
+                try {
+                  await handleCreatePersonAndLink(values, quickAddType);
+                } catch (err) {
+                  console.error("Create and link error:", err);
+                  alert(err.message || "Failed to create person and link.");
+                }
+              }}
+              onCancel={() => setIsCreatePersonOpen(false)}
+            />
           </div>
         </div>
       ) : null}
