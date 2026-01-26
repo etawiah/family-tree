@@ -45,6 +45,26 @@ body {
   font-weight: 500;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.role-indicator {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.logout-button {
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
 .app-main {
   flex: 1;
   padding: 2rem;
@@ -111,6 +131,10 @@ body {
 
 .button-row button.active {
   background: #0f172a;
+}
+
+.button-row .danger-button {
+  background: #dc2626;
 }
 
 .tree-page {
@@ -292,6 +316,30 @@ body {
 .activity-list li {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+}
+
+.people-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.people-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
   align-items: center;
   background: #ffffff;
   padding: 0.75rem 1rem;

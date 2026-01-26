@@ -1,9 +1,11 @@
-import { Link, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import LoginForm from "./components/auth/LoginForm.jsx";
 import AdminDashboard from "./components/admin/AdminDashboard.jsx";
 import FamilyTreeView from "./components/tree/FamilyTreeView.jsx";
 import ProtectedRoute from "./utils/ProtectedRoute.jsx";
 import AddPersonPage from "./components/person/AddPersonPage.jsx";
+import AppHeader from "./components/layout/AppHeader.jsx";
+import EditPersonPage from "./components/person/EditPersonPage.jsx";
 
 // Simple placeholder routes to validate navigation and layout wiring.
 const Home = () => (
@@ -26,14 +28,7 @@ const NotFound = () => (
 export default function App() {
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="brand">E. Tawiah Family Tree</div>
-        <nav className="nav-links">
-          <Link to="/">Home</Link>
-          <Link to="/tree">Tree</Link>
-          <Link to="/admin">Admin</Link>
-        </nav>
-      </header>
+      <AppHeader />
 
       <main className="app-main">
         <Routes>
@@ -54,6 +49,7 @@ export default function App() {
           {/* Edit-level access: create new people entries. */}
           <Route element={<ProtectedRoute requiredLevel="edit" />}>
             <Route path="/people/new" element={<AddPersonPage />} />
+            <Route path="/people/:id/edit" element={<EditPersonPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

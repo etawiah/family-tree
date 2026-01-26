@@ -11,6 +11,12 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
+  const [peopleBySide, setPeopleBySide] = useState({
+    maternal: [],
+    paternal: [],
+  });
+  const [currentUser, setCurrentUser] = useState(null);
+  const [lastLogin, setLastLogin] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [manualDescription, setManualDescription] = useState("");
@@ -26,14 +32,30 @@ export default function AdminDashboard() {
     const load = async () => {
       try {
         setIsLoading(true);
-        const [snapshotRes, userRes, statsRes, activityRes] = await Promise.all([
+        const [
+          snapshotRes,
+          userRes,
+          statsRes,
+          activityRes,
+          maternalPeopleRes,
+          paternalPeopleRes,
+        ] = await Promise.all([
           fetch(`${baseUrl}/api/snapshots`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/users`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/stats`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/activity`, { headers: authHeader }),
+          fetch(`${baseUrl}/api/people?tree_side=maternal`, { headers: authHeader }),
+          fetch(`${baseUrl}/api/people?tree_side=paternal`, { headers: authHeader }),
         ]);
 
-        if (!snapshotRes.ok || !userRes.ok || !statsRes.ok || !activityRes.ok) {
+        if (
+          !snapshotRes.ok ||
+          !userRes.ok ||
+          !statsRes.ok ||
+          !activityRes.ok ||
+          !maternalPeopleRes.ok ||
+          !paternalPeopleRes.ok
+        ) {
           throw new Error("Failed to load admin data.");
         }
 
@@ -41,11 +63,32 @@ export default function AdminDashboard() {
         const userData = await userRes.json();
         const statsData = await statsRes.json();
         const activityData = await activityRes.json();
+        const maternalPeopleData = await maternalPeopleRes.json();
+        const paternalPeopleData = await paternalPeopleRes.json();
 
         setSnapshots(snapshotData.snapshots || []);
         setUsers(userData.users || []);
         setStats(statsData);
         setActivity(activityData.activity || []);
+        setPeopleBySide({
+          maternal: maternalPeopleData.people || [],
+          paternal: paternalPeopleData.people || [],
+        });
+
+        // Fetch current user info to show role and attribution context.
+        const verifyRes = await fetch(`${baseUrl}/api/auth/verify`, {
+          headers: authHeader,
+        });
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          setCurrentUser(verifyData);
+          const latestLogin = (activityData.activity || []).find(
+            (entry) =>
+              entry.action === "auth.login.success" &&
+              entry.user_id === verifyData.username
+          );
+          setLastLogin(latestLogin?.created_at || null);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -110,10 +153,42 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleDeletePerson = (person) => {
+    setConfirmAction({
+      title: "Delete person",
+      message: `Delete ${person.first_name} ${person.last_name}? This is a soft delete.`,
+      onConfirm: async () => {
+        await fetch(`${baseUrl}/api/people/${person.id}`, {
+          method: "DELETE",
+          headers: authHeader,
+        });
+        await reloadPeople();
+      },
+    });
+  };
+
   const reloadSnapshots = async () => {
     const snapshotRes = await fetch(`${baseUrl}/api/snapshots`, { headers: authHeader });
     const snapshotData = await snapshotRes.json();
     setSnapshots(snapshotData.snapshots || []);
+  };
+
+  const reloadPeople = async () => {
+    const [maternalPeopleRes, paternalPeopleRes] = await Promise.all([
+      fetch(`${baseUrl}/api/people?tree_side=maternal`, { headers: authHeader }),
+      fetch(`${baseUrl}/api/people?tree_side=paternal`, { headers: authHeader }),
+    ]);
+
+    if (!maternalPeopleRes.ok || !paternalPeopleRes.ok) {
+      return;
+    }
+
+    const maternalPeopleData = await maternalPeopleRes.json();
+    const paternalPeopleData = await paternalPeopleRes.json();
+    setPeopleBySide({
+      maternal: maternalPeopleData.people || [],
+      paternal: paternalPeopleData.people || [],
+    });
   };
 
   if (isLoading) {
@@ -131,6 +206,23 @@ export default function AdminDashboard() {
   return (
     <section className="page admin-dashboard">
       <h1>Admin Dashboard</h1>
+
+      <section className="admin-section">
+        <h2>Current Session</h2>
+        <p>
+          Logged in as{" "}
+          <strong>{currentUser?.username || "Unknown"}</strong> (
+          {currentUser?.accessLevel || "unknown"}).
+        </p>
+        <p>
+          Last login recorded at:{" "}
+          {lastLogin ? new Date(lastLogin).toLocaleString() : "Not available"}
+        </p>
+        <p>
+          Activity entries below provide attribution for actions performed in
+          the app.
+        </p>
+      </section>
 
       <section className="admin-section">
         <h2>Snapshot Management</h2>
@@ -175,6 +267,59 @@ export default function AdminDashboard() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="admin-section">
+        <h2>People Management</h2>
+        <p>Use these lists to edit or delete any record.</p>
+        <div className="people-columns">
+          <div>
+            <h3>Maternal</h3>
+            <ul className="people-list">
+              {peopleBySide.maternal.map((person) => (
+                <li key={person.id}>
+                  <div>
+                    <strong>
+                      {person.first_name} {person.last_name}
+                    </strong>
+                    <p>#{person.id}</p>
+                  </div>
+                  <div className="button-row">
+                    <a className="button-link" href={`/people/${person.id}/edit`}>
+                      Edit
+                    </a>
+                    <button type="button" onClick={() => handleDeletePerson(person)}>
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3>Paternal</h3>
+            <ul className="people-list">
+              {peopleBySide.paternal.map((person) => (
+                <li key={person.id}>
+                  <div>
+                    <strong>
+                      {person.first_name} {person.last_name}
+                    </strong>
+                    <p>#{person.id}</p>
+                  </div>
+                  <div className="button-row">
+                    <a className="button-link" href={`/people/${person.id}/edit`}>
+                      Edit
+                    </a>
+                    <button type="button" onClick={() => handleDeletePerson(person)}>
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </section>
 
       <section className="admin-section">
