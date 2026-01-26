@@ -1,0 +1,22 @@
+name = "family-tree-api"
+main = "functions/api.js"
+compatibility_date = "2024-01-25"
+
+# D1 Database binding (you'll add database_id in step 4)
+[[d1_databases]]
+binding = "DB"
+database_name = "family-tree-db"
+database_id = "65e3242b-ea09-4ee1-9aa7-624f8f56a9c2"  # Will fill in after creating database
+
+# R2 Bucket binding (you'll add bucket_name in step 7)
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "family-tree-photos"  # Will fill in after creating bucket
+
+# Cron triggers for daily snapshots
+[triggers]
+crons = ["0 2 * * *"]  # Daily at 2 AM UTC
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
