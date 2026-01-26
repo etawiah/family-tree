@@ -7,6 +7,7 @@ export default function TreeControls({
   onZoomIn,
   onZoomOut,
   onReset,
+  onFitToScreen,
   onExpandAll,
   onCollapseAll,
   onSearch,
@@ -30,6 +31,11 @@ export default function TreeControls({
         <button type="button" onClick={onReset}>
           Reset View
         </button>
+        {onFitToScreen ? (
+          <button type="button" onClick={onFitToScreen}>
+            Fit to Screen
+          </button>
+        ) : null}
       </div>
 
       <div className="button-row">

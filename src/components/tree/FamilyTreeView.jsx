@@ -36,6 +36,8 @@ export default function FamilyTreeView() {
   const [isCreatePersonOpen, setIsCreatePersonOpen] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
   const queryClient = useQueryClient();
 
@@ -92,14 +94,20 @@ export default function FamilyTreeView() {
 
   useEffect(() => {
     if (peopleDataResponse) {
-      console.log("People API response:", peopleDataResponse);
       const people = peopleDataResponse.people || [];
-      console.log(
-        `Fetched ${people.length} people from API for ${treeSide} tree.`
-      );
-      people.forEach((person) => {
-        console.log("Person record:", person);
-      });
+      console.log(`[Tree Debug] API returned ${people.length} people for ${treeSide} tree`);
+      if (people.length === 0) {
+        console.warn(`[Tree Debug] No people returned from API for ${treeSide} side`);
+      } else {
+        people.forEach((person, idx) => {
+          console.log(`[Tree Debug] Person ${idx + 1}:`, {
+            id: person.id,
+            name: `${person.first_name} ${person.last_name}`,
+            tree_side: person.tree_side,
+            has_relationships: person.children?.length > 0 || false,
+          });
+        });
+      }
     }
   }, [peopleDataResponse, treeSide]);
 
@@ -108,35 +116,94 @@ export default function FamilyTreeView() {
     const roots = treeDataResponse?.tree || [];
     const people = peopleDataResponse?.people || [];
     
-    console.log(`Tree data: ${roots.length} roots, ${people.length} total people for ${treeSide} side`);
+    console.log(`[Tree Debug] Processing tree data: ${roots.length} roots, ${people.length} total people for ${treeSide} side`);
     
-    const mappedRoots = roots.map((root) => mapNode(root, collapsedIds));
+    // Build relationship info map for path styling
+    // Note: We'll need to fetch relationships separately or enhance the tree API
+    // For now, we'll use the relationship data from the tree structure
+    const relationshipInfo = {};
+    
+    const mappedRoots = roots.map((root) => mapNode(root, collapsedIds, relationshipInfo));
     const linkedIds = new Set();
     collectNodeIds(roots).forEach((id) => linkedIds.add(id));
     const unlinkedPeople = people.filter((person) => !linkedIds.has(person.id));
 
-    console.log(`Unlinked people: ${unlinkedPeople.length}`);
+    console.log(`[Tree Debug] Linked people: ${linkedIds.size}, Unlinked people: ${unlinkedPeople.length}`);
 
     const nodes = [...mappedRoots];
     if (unlinkedPeople.length) {
       nodes.push({
         name: "Unlinked",
         isGroup: true,
-        children: unlinkedPeople.map((person) => mapNode(person, collapsedIds)),
+        children: unlinkedPeople.map((person) => mapNode(person, collapsedIds, relationshipInfo)),
       });
     }
 
-    console.log(
-      `Rendering ${nodes.length} root nodes for ${treeSide} tree.`
-    );
+    const totalNodes = nodes.reduce((count, node) => {
+      return count + (node.isGroup ? (node.children?.length || 0) : 1) + countDescendants(node);
+    }, 0);
+
+    console.log(`[Tree Debug] Rendering ${nodes.length} root nodes, ${totalNodes} total nodes for ${treeSide} tree`);
+    console.log(`[Tree Debug] API returned ${people.length} people, rendering ${totalNodes} nodes`);
+    
+    if (people.length > 0 && totalNodes === 0) {
+      console.error(`[Tree Debug] ERROR: ${people.length} people in API but 0 nodes rendered! Check mapNode function.`);
+    } else if (people.length !== totalNodes && !nodes.some(n => n.isGroup)) {
+      console.warn(`[Tree Debug] WARNING: ${people.length} people in API but ${totalNodes} nodes rendered. Some people may be missing.`);
+    }
+    
     return nodes;
   }, [treeDataResponse, peopleDataResponse, collapsedIds, treeSide]);
+
+  function countDescendants(node) {
+    if (!node.children || node.children.length === 0) return 0;
+    return node.children.length + node.children.reduce((sum, child) => sum + countDescendants(child), 0);
+  }
 
   const handleZoomIn = () => setZoom((current) => Math.min(current + 0.1, 2));
   const handleZoomOut = () => setZoom((current) => Math.max(current - 0.1, 0.3));
   const handleReset = () => {
     setZoom(0.8);
     setTranslate(DEFAULT_TRANSLATE);
+  };
+
+  const handleFitToScreen = () => {
+    // Calculate bounds of all nodes and center/zoom to fit
+    // For now, reset to default - can be enhanced with actual bounds calculation
+    setZoom(0.8);
+    setTranslate(DEFAULT_TRANSLATE);
+  };
+
+  // Touch/pan handlers for mobile
+  const handleTouchStart = (event) => {
+    if (event.touches.length === 1) {
+      setIsPanning(true);
+      setPanStart({
+        x: event.touches[0].clientX - translate.x,
+        y: event.touches[0].clientY - translate.y,
+      });
+    }
+  };
+
+  const handleTouchMove = (event) => {
+    if (isPanning && event.touches.length === 1) {
+      event.preventDefault();
+      setTranslate({
+        x: event.touches[0].clientX - panStart.x,
+        y: event.touches[0].clientY - panStart.y,
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsPanning(false);
+  };
+
+  // Mouse wheel zoom
+  const handleWheel = (event) => {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -0.1 : 0.1;
+    setZoom((current) => Math.max(0.3, Math.min(2, current + delta)));
   };
 
   const handleCollapseAll = () => {
@@ -345,24 +412,50 @@ export default function FamilyTreeView() {
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onReset={handleReset}
+        onFitToScreen={handleFitToScreen}
         onExpandAll={handleExpandAll}
         onCollapseAll={handleCollapseAll}
         onSearch={handleSearch}
       />
 
-      <div className="tree-canvas">
+      <div
+        className="tree-canvas"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+      >
         <Tree
           data={treeData}
           translate={translate}
           zoom={zoom}
           orientation="vertical"
-          pathFunc="elbow"
+          pathFunc={customPathFunc}
+          pathClassFunc={(link) => {
+            const sourceNode = link.source.data;
+            const targetNode = link.target.data;
+            const isBlood = sourceNode.isBloodRelative ?? true;
+            const isMarriage = sourceNode.marriageStatus === "married" || targetNode.marriageStatus === "married";
+            const isDivorced = sourceNode.marriageStatus === "divorced" || targetNode.marriageStatus === "divorced";
+            
+            let className = "tree-link";
+            if (isMarriage) {
+              className += " tree-link-marriage";
+              if (isDivorced) className += " tree-link-divorced";
+            } else if (!isBlood) {
+              className += " tree-link-nonblood";
+            } else {
+              className += " tree-link-blood";
+            }
+            return className;
+          }}
           collapsible
           renderCustomNodeElement={({ nodeDatum }) => (
             <PersonNode nodeDatum={nodeDatum} onSelect={handleSelectPerson} />
           )}
           separation={{ siblings: 1.2, nonSiblings: 2 }}
           nodeSize={{ x: 160, y: 120 }}
+          enableLegacyTransitions={false}
         />
       </div>
 
@@ -535,9 +628,10 @@ export default function FamilyTreeView() {
 
 /**
  * Map API person objects to react-d3-tree node format.
+ * Includes relationship metadata for path styling.
  */
-function mapNode(person, collapsedIds) {
-  return {
+function mapNode(person, collapsedIds, relationshipInfo = {}) {
+  const node = {
     id: person.id,
     name: `${person.first_name} ${person.last_name}`,
     rawPerson: person,
@@ -547,8 +641,19 @@ function mapNode(person, collapsedIds) {
     marriageStatus: person.marriage_status,
     hasMultipleMarriages: person.relationship_order > 1,
     collapsed: collapsedIds.has(person.id),
-    children: (person.children || []).map((child) => mapNode(child, collapsedIds)),
+    children: (person.children || []).map((child) => {
+      // Attach relationship metadata to each child link
+      const childRelInfo = relationshipInfo[child.id] || {};
+      return mapNode(child, collapsedIds, relationshipInfo);
+    }),
   };
+
+  // Attach relationship info to node for path styling
+  if (relationshipInfo[person.id]) {
+    node.relationshipInfo = relationshipInfo[person.id];
+  }
+
+  return node;
 }
 
 /**
@@ -584,3 +689,26 @@ function findNodeByName(nodes, query) {
   }
   return null;
 }
+
+/**
+ * Custom path function for react-d3-tree to style relationship lines.
+ * Styles based on relationship type: solid for blood, dashed for non-blood, thick for marriage.
+ */
+function customPathFunc({ source, target }) {
+  const sourceNode = source.data;
+  const targetNode = target.data;
+  
+  // Determine relationship type from node data
+  const isBloodRelation = sourceNode.isBloodRelative ?? true;
+  const isMarriage = sourceNode.marriageStatus === "married" || targetNode.marriageStatus === "married";
+  const isDivorced = sourceNode.marriageStatus === "divorced" || targetNode.marriageStatus === "divorced";
+  
+  // Create elbow path
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const midX = source.x + dx / 2;
+  const midY = source.y + dy / 2;
+  
+  return `M${source.x},${source.y} L${midX},${source.y} L${midX},${target.y} L${target.x},${target.y}`;
+}
+

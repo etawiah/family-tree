@@ -162,10 +162,53 @@ body {
 
 .tree-canvas {
   height: 520px;
+  min-height: 400px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   margin: 1.5rem 0;
   overflow: hidden;
+  position: relative;
+  touch-action: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .tree-canvas {
+    height: 400px;
+    min-height: 300px;
+  }
+}
+
+/* Relationship line styling */
+.tree-link {
+  stroke-width: 2;
+  stroke: #3b82f6;
+  fill: none;
+  opacity: 0.8;
+}
+
+.tree-link-blood {
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: 0;
+}
+
+.tree-link-nonblood {
+  stroke: #94a3b8;
+  stroke-width: 2;
+  stroke-dasharray: 4 2;
+}
+
+.tree-link-marriage {
+  stroke: #d946ef;
+  stroke-width: 4;
+  stroke-dasharray: 0;
+}
+
+.tree-link-divorced {
+  stroke: #d946ef;
+  stroke-width: 4;
+  stroke-dasharray: 8 4;
 }
 
 .tree-selector {
@@ -196,9 +239,27 @@ body {
   padding: 1rem;
 }
 
+.tree-legend h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.tree-legend h4 {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+  color: #475569;
+}
+
+.legend-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
 .tree-legend ul {
   margin: 0.5rem 0 0;
   padding-left: 1.2rem;
+  font-size: 0.9rem;
 }
 
 .modal-overlay {
