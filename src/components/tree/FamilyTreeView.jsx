@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import Tree from "react-d3-tree";
 import TreeControls from "./TreeControls.jsx";
 import TreeSelector from "./TreeSelector.jsx";
 import { PersonNode, TreeLegend } from "./PersonNode.jsx";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
+import PersonDetail from "../person/PersonDetail.jsx";
 
 const DEFAULT_TRANSLATE = { x: 350, y: 120 };
 
@@ -22,11 +23,19 @@ export default function FamilyTreeView() {
   const [zoom, setZoom] = useState(0.8);
   const [translate, setTranslate] = useState(DEFAULT_TRANSLATE);
   const [collapsedIds, setCollapsedIds] = useState(new Set());
+  const [selectedPerson, setSelectedPerson] = useState(null);
+  const [relationships, setRelationships] = useState([]);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
+  const navigate = useNavigate();
 
   const baseUrl = import.meta.env.VITE_API_URL;
 
-  const { data, isLoading, error } = useQuery({
+  const {
+    data: treeDataResponse,
+    isLoading: isTreeLoading,
+    error: treeError,
+  } = useQuery({
     queryKey: ["tree", treeSide],
     queryFn: async () => {
       const response = await fetch(
@@ -46,11 +55,65 @@ export default function FamilyTreeView() {
     },
   });
 
+  const {
+    data: peopleDataResponse,
+    isLoading: isPeopleLoading,
+    error: peopleError,
+  } = useQuery({
+    queryKey: ["people", treeSide],
+    queryFn: async () => {
+      const response = await fetch(
+        `${baseUrl}/api/people?tree_side=${treeSide}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
+          },
+        }
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to load people.");
+      }
+      return payload;
+    },
+  });
+
+  useEffect(() => {
+    if (peopleDataResponse) {
+      console.log("People API response:", peopleDataResponse);
+      const people = peopleDataResponse.people || [];
+      console.log(
+        `Fetched ${people.length} people from API for ${treeSide} tree.`
+      );
+      people.forEach((person) => {
+        console.log("Person record:", person);
+      });
+    }
+  }, [peopleDataResponse, treeSide]);
+
   // Convert API data into react-d3-tree nodes.
   const treeData = useMemo(() => {
-    const roots = data?.tree || [];
-    return roots.map((root) => mapNode(root, collapsedIds));
-  }, [data, collapsedIds]);
+    const roots = treeDataResponse?.tree || [];
+    const people = peopleDataResponse?.people || [];
+    const mappedRoots = roots.map((root) => mapNode(root, collapsedIds));
+    const linkedIds = new Set();
+    collectNodeIds(roots).forEach((id) => linkedIds.add(id));
+    const unlinkedPeople = people.filter((person) => !linkedIds.has(person.id));
+
+    const nodes = [...mappedRoots];
+    if (unlinkedPeople.length) {
+      nodes.push({
+        name: "Unlinked",
+        isGroup: true,
+        children: unlinkedPeople.map((person) => mapNode(person, collapsedIds)),
+      });
+    }
+
+    console.log(
+      `Rendering ${nodes.length} root nodes for ${treeSide} tree.`
+    );
+    return nodes;
+  }, [treeDataResponse, peopleDataResponse, collapsedIds, treeSide]);
 
   const handleZoomIn = () => setZoom((current) => Math.min(current + 0.1, 2));
   const handleZoomOut = () => setZoom((current) => Math.max(current - 0.1, 0.3));
@@ -68,6 +131,34 @@ export default function FamilyTreeView() {
     setCollapsedIds(new Set());
   };
 
+  const handleSelectPerson = async (nodeDatum) => {
+    if (!nodeDatum || nodeDatum.isGroup) {
+      return;
+    }
+    setIsDetailLoading(true);
+    setSelectedPerson(nodeDatum.rawPerson || nodeDatum);
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/people/${nodeDatum.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("family_tree_token") || ""}`,
+          },
+        }
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to load person details.");
+      }
+      setSelectedPerson(payload.person);
+      setRelationships(payload.relationships || []);
+    } catch (err) {
+      console.error("Failed to load person details:", err);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
   const handleSearch = (query) => {
     if (!query) {
       return;
@@ -80,14 +171,17 @@ export default function FamilyTreeView() {
     }
   };
 
-  if (isLoading) {
+  if (isTreeLoading || isPeopleLoading) {
     return <div className="page">Loading tree...</div>;
   }
 
-  if (error) {
+  if (treeError || peopleError) {
     return (
       <div className="page">
-        <p>Unable to load the tree. {error.message}</p>
+        <p>
+          Unable to load the tree.{" "}
+          {(treeError || peopleError)?.message || "Unknown error"}
+        </p>
       </div>
     );
   }
@@ -134,8 +228,8 @@ export default function FamilyTreeView() {
           orientation="vertical"
           pathFunc="elbow"
           collapsible
-          renderCustomNodeElement={({ nodeDatum, toggleNode }) => (
-            <PersonNode nodeDatum={nodeDatum} toggleNode={toggleNode} />
+          renderCustomNodeElement={({ nodeDatum }) => (
+            <PersonNode nodeDatum={nodeDatum} onSelect={handleSelectPerson} />
           )}
           separation={{ siblings: 1.2, nonSiblings: 2 }}
           nodeSize={{ x: 160, y: 120 }}
@@ -143,6 +237,21 @@ export default function FamilyTreeView() {
       </div>
 
       <TreeLegend />
+
+      <PersonDetail
+        person={selectedPerson}
+        relationships={relationships}
+        isLoading={isDetailLoading}
+        onClose={() => setSelectedPerson(null)}
+        onEdit={() => {
+          if (selectedPerson?.id) {
+            navigate(`/people/${selectedPerson.id}/edit`);
+          }
+        }}
+        onAddRelationship={() => {
+          window.alert("Relationship editor is coming next.");
+        }}
+      />
     </section>
   );
 }
@@ -152,7 +261,9 @@ export default function FamilyTreeView() {
  */
 function mapNode(person, collapsedIds) {
   return {
+    id: person.id,
     name: `${person.first_name} ${person.last_name}`,
+    rawPerson: person,
     gender: person.gender,
     isAlive: person.is_alive,
     isBloodRelative: person.is_blood_relation ?? true,

@@ -6,7 +6,14 @@ import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
  * This component is intentionally presentational so it can be reused in
  * different contexts (tree click, search results, admin panel).
  */
-export default function PersonDetail({ person, relationships = [], onClose, onEdit }) {
+export default function PersonDetail({
+  person,
+  relationships = [],
+  onClose,
+  onEdit,
+  onAddRelationship,
+  isLoading = false,
+}) {
   if (!person) {
     return null;
   }
@@ -14,18 +21,32 @@ export default function PersonDetail({ person, relationships = [], onClose, onEd
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal">
+    <div
+      className="modal-overlay person-detail-overlay"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="modal person-detail-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="modal-header">
-          <h2>
-            {person.first_name} {person.last_name}
-          </h2>
+          <div>
+            <h2>
+              {person.first_name} {person.last_name}
+            </h2>
+            <p className="subtitle">
+              {person.tree_side?.toUpperCase() || "UNKNOWN"} side
+            </p>
+          </div>
           <button type="button" onClick={onClose}>
             Close
           </button>
         </header>
 
         <div className="modal-content">
+          {isLoading ? <p>Loading details...</p> : null}
           <div className="photo-grid">
             <img
               src={person.headshot_url || "/placeholder-headshot.png"}
@@ -74,6 +95,9 @@ export default function PersonDetail({ person, relationships = [], onClose, onEd
           <footer className="modal-footer">
             <button type="button" onClick={onEdit}>
               Edit Person
+            </button>
+            <button type="button" onClick={onAddRelationship}>
+              Add Relationship
             </button>
           </footer>
         ) : null}

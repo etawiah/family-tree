@@ -5,7 +5,32 @@ import { CheckCircle, Heart, XCircle } from "lucide-react";
  *
  * Styling encodes relationship metadata to improve at-a-glance understanding.
  */
-export function PersonNode({ nodeDatum, toggleNode }) {
+export function PersonNode({ nodeDatum, onSelect }) {
+  if (nodeDatum.isGroup) {
+    return (
+      <g onClick={() => onSelect?.(nodeDatum)}>
+        <rect
+          width={140}
+          height={36}
+          x={-70}
+          y={-18}
+          rx={10}
+          ry={10}
+          fill="#e2e8f0"
+          stroke="#64748b"
+          strokeWidth={2}
+        />
+        <text
+          textAnchor="middle"
+          dy={5}
+          style={{ fontSize: 12, fill: "#1f2933", fontWeight: 600 }}
+        >
+          {nodeDatum.name}
+        </text>
+      </g>
+    );
+  }
+
   const gender = nodeDatum.gender || "other";
   const isBloodRelative = nodeDatum.isBloodRelative ?? true;
   const isDeceased = nodeDatum.isAlive === false;
@@ -26,7 +51,7 @@ export function PersonNode({ nodeDatum, toggleNode }) {
   const borderWidth = hasMultipleMarriages ? 4 : 2;
 
   return (
-    <g>
+    <g onClick={() => onSelect?.(nodeDatum)} style={{ cursor: "pointer" }}>
       <circle
         r={28}
         style={{
@@ -34,7 +59,6 @@ export function PersonNode({ nodeDatum, toggleNode }) {
           strokeDasharray: borderDash,
           strokeWidth: borderWidth,
         }}
-        onClick={toggleNode}
       />
       <text
         dy={4}
