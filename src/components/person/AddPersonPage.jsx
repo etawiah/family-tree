@@ -56,6 +56,10 @@ export default function AddPersonPage() {
         Fill out the details below. Required fields are first name, last name,
         gender, and tree side.
       </p>
+      <div style={{ padding: "20px", border: "2px solid red", marginBottom: "20px" }}>
+        <p><strong>DEBUG: Test input below - can you type here?</strong></p>
+        <input type="text" placeholder="Test typing here" />
+      </div>
       <ErrorDisplay
         error={error}
         onRetry={() => {}}
@@ -63,7 +67,11 @@ export default function AddPersonPage() {
         canRetry={false}
         clearLabel="Dismiss"
       />
-      <PersonForm onSubmit={handleSubmit} onCancel={handleCancel} />
+      <PersonForm
+        initialValues={{}}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+      />
       {isSaving ? <p>Saving...</p> : null}
     </section>
   );
