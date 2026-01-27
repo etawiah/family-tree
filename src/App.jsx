@@ -44,7 +44,7 @@ const NotFound = () => (
 export default function App() {
   const { toast, showToast } = useToast();
   const navigate = useNavigate();
-  useKeyboardShortcuts(); // Enable essential keyboard shortcuts
+  // TEMPORARILY DISABLED FOR DEBUGGING: useKeyboardShortcuts(); // Enable essential keyboard shortcuts
 
   useEffect(() => {
     const handleTokenExpired = () => {
