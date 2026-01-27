@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PersonForm from "./PersonForm.jsx";
 import { getAccessLevel, getToken, hasRequiredAccess } from "../../services/auth.js";
+import { useToast } from "../common/Toast.jsx";
+import { apiRequest } from "../../utils/api.js";
 
 /**
  * Page wrapper for editing or deleting an existing person.
@@ -9,6 +11,7 @@ import { getAccessLevel, getToken, hasRequiredAccess } from "../../services/auth
 export default function EditPersonPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { showToast } = useToast();
   const [person, setPerson] = useState(null);
   const [relationships, setRelationships] = useState([]);
   const [error, setError] = useState("");
@@ -18,56 +21,43 @@ export default function EditPersonPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/people/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${getToken() || ""}`,
-            },
-          }
-        );
-        if (!response.ok) {
-          const payload = await response.json();
-          throw new Error(payload?.error || "Unable to load person.");
-        }
-        const data = await response.json();
+        const data = await apiRequest(`/api/people/${id}`);
         setPerson(data.person);
         setRelationships(data.relationships || []);
       } catch (err) {
-        setError(err.message);
+        const message = err.message || "Person information could not be loaded. Please refresh the page.";
+        setError(message);
+        showToast(message, "error");
       }
     };
 
     load();
-  }, [id]);
+  }, [id, showToast]);
 
   const handleSubmit = async (values) => {
     setError("");
     setIsSaving(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/people/${id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken() || ""}`,
-          },
-          body: JSON.stringify(values),
-        }
-      );
+      await apiRequest(`/api/people/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(values),
+      });
 
-      if (!response.ok) {
-        const payload = await response.json();
-        throw new Error(payload?.error || "Unable to save person.");
-      }
-
-      navigate("/tree");
+      showToast("Person updated successfully", "success");
+      setTimeout(() => {
+        navigate("/tree");
+      }, 500);
     } catch (err) {
-      setError(err.message);
+      const message = err.message || "Unable to save person. Please check your information and try again.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    navigate("/tree");
   };
 
   const handleDelete = async () => {
@@ -120,7 +110,7 @@ export default function EditPersonPage() {
         warnOnTreeSideChange
         hasRelationships={relationships.length > 0}
         onSubmit={handleSubmit}
-        onCancel={() => navigate("/tree")}
+        onCancel={handleCancel}
       />
       {isSaving ? <p>Saving...</p> : null}
       {canDelete ? (
