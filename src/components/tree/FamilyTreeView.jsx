@@ -383,12 +383,39 @@ export default function FamilyTreeView() {
     );
   }
 
-  if (!treeData.length) {
+  if (isTreeLoading) {
     return (
       <section className="page tree-page">
         <TreeSelector treeSide={treeSide} onChange={setTreeSide} />
         <div className="empty-state">
-          <h2>No people added yet</h2>
+          <p>Loading family tree...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (treeError) {
+    return (
+      <section className="page tree-page">
+        <TreeSelector treeSide={treeSide} onChange={setTreeSide} />
+        <div className="empty-state">
+          <p className="form-error">
+            {treeError.message || "Unable to load family tree. Please refresh the page."}
+          </p>
+          <button type="button" onClick={() => refetchTree()}>
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!treeData || treeData.length === 0) {
+    return (
+      <section className="page tree-page">
+        <TreeSelector treeSide={treeSide} onChange={setTreeSide} />
+        <div className="empty-state">
+          <h2>No family members yet</h2>
           <p>
             Start building the family tree by adding the first person on the{" "}
             {treeSide} side.

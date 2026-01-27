@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
 
 /**
@@ -23,6 +23,17 @@ export default function PersonDetail({
   }
 
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
+
+  // Keyboard navigation: Close on Escape key
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape" && onClose) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
 
   // Organize relationships for display - group marriages by order, detect step/half relationships
   const organizedRelationships = useMemo(() => {

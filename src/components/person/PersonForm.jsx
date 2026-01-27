@@ -64,15 +64,25 @@ export default function PersonForm({
 
   const validate = () => {
     const nextErrors = {};
-    if (!formState.first_name) {
+    if (!formState.first_name?.trim()) {
       nextErrors.first_name = "First name is required.";
     }
-    if (!formState.last_name) {
+    if (!formState.last_name?.trim()) {
       nextErrors.last_name = "Last name is required.";
     }
     if (!formState.gender) {
       nextErrors.gender = "Gender is required.";
     }
+    
+    // Date validation
+    if (formState.birth_date && formState.death_date) {
+      const birth = new Date(formState.birth_date);
+      const death = new Date(formState.death_date);
+      if (death < birth) {
+        nextErrors.death_date = "Death date must be after birth date.";
+      }
+    }
+    
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -97,10 +107,12 @@ export default function PersonForm({
     <form className="person-form" onSubmit={handleSubmit}>
       <div className="form-grid">
         <label className="form-field">
-          First name
+          First name <span style={{ color: "#ef4444" }}>*</span>
           <input
+            type="text"
             value={formState.first_name}
             onChange={(event) => updateField("first_name", event.target.value)}
+            required
           />
           {errors.first_name ? (
             <span className="form-error">{errors.first_name}</span>
@@ -116,10 +128,12 @@ export default function PersonForm({
         </label>
 
         <label className="form-field">
-          Last name
+          Last name <span style={{ color: "#ef4444" }}>*</span>
           <input
+            type="text"
             value={formState.last_name}
             onChange={(event) => updateField("last_name", event.target.value)}
+            required
           />
           {errors.last_name ? (
             <span className="form-error">{errors.last_name}</span>
@@ -154,10 +168,11 @@ export default function PersonForm({
         </label>
 
         <label className="form-field">
-          Gender
+          Gender <span style={{ color: "#ef4444" }}>*</span>
           <select
             value={formState.gender}
             onChange={(event) => updateField("gender", event.target.value)}
+            required
           >
             <option value="male">Male</option>
             <option value="female">Female</option>
@@ -188,6 +203,9 @@ export default function PersonForm({
               updateField("is_alive", value ? false : true);
             }}
           />
+          {errors.death_date ? (
+            <span className="form-error">{errors.death_date}</span>
+          ) : null}
         </label>
 
         <label className="form-field checkbox">
@@ -283,9 +301,11 @@ export default function PersonForm({
         <button type="submit" disabled={isSaving}>
           {isSaving ? "Saving..." : submitLabel}
         </button>
-        <button type="button" onClick={onCancel}>
-          Cancel
-        </button>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} disabled={isSaving}>
+            Cancel
+          </button>
+        ) : null}
       </div>
     </form>
   );

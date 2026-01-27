@@ -131,7 +131,7 @@ export default function RelationshipForm({
     const ageWarning = getAgeWarning();
     const marriageWarning = getMarriageWarning();
     setWarning(ageWarning || marriageWarning);
-  }, [relationshipType, relatedPersonId, people, person, marriageDate, relationshipOrder]);
+  }, [relationshipType, relatedPersonId, people, person, marriageDate, relationshipOrder, existingMarriages, isSpouseType]);
 
   const getMarriageWarning = () => {
     if (!isSpouseType || !person?.id || !marriageDate) return "";

@@ -32,13 +32,38 @@ export default function ImageUpload({
         return;
       }
 
+      // Validate file type
+      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+      if (!validTypes.includes(file.type)) {
+        setStatus("Invalid file type. Please use JPEG, PNG, or WebP.");
+        return;
+      }
+
+      // Validate file size (max 10MB before compression)
+      const maxSizeMB = 10;
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > maxSizeMB) {
+        setStatus(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum size is ${maxSizeMB}MB.`);
+        return;
+      }
+
+      setStatus("Compressing image...");
+      setProgress(10);
+
       // Client-side compression reduces upload time and storage costs.
-      const compressed = await imageCompression(file, {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-        fileType: "image/jpeg",
-      });
+      let compressed;
+      try {
+        compressed = await imageCompression(file, {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          fileType: "image/jpeg",
+        });
+        setProgress(30);
+      } catch (error) {
+        setStatus("Compression failed. Please try a different image.");
+        return;
+      }
 
       const dataUrl = await imageCompression.getDataUrlFromFile(compressed);
       setPreview(dataUrl);
@@ -95,6 +120,9 @@ export default function ImageUpload({
         style={{ cursor: "pointer" }}
       >
         Drag & drop an image, or click to select.
+        <div style={{ fontSize: "0.85rem", marginTop: "0.5rem", color: "#64748b" }}>
+          Accepted: JPEG, PNG, WebP (max 10MB)
+        </div>
       </div>
 
       {preview ? <img src={preview} alt={`${label} preview`} /> : null}

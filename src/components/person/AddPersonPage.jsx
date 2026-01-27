@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PersonForm from "./PersonForm.jsx";
-import { getToken } from "../../services/auth.js";
+import { useToast } from "../common/Toast.jsx";
+import { apiRequest } from "../../utils/api.js";
 
 /**
  * Page wrapper for creating a new person entry.
  */
 export default function AddPersonPage() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -15,29 +17,26 @@ export default function AddPersonPage() {
     setError("");
     setIsSaving(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/people`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken() || ""}`,
-          },
-          body: JSON.stringify(values),
-        }
-      );
+      await apiRequest("/api/people", {
+        method: "POST",
+        body: JSON.stringify(values),
+      });
 
-      if (!response.ok) {
-        const payload = await response.json();
-        throw new Error(payload?.error || "Unable to save person.");
-      }
-
-      navigate("/tree");
+      showToast("Person added successfully", "success");
+      setTimeout(() => {
+        navigate("/tree");
+      }, 500);
     } catch (err) {
-      setError(err.message);
+      const message = err.message || "Unable to save person. Please check your information and try again.";
+      setError(message);
+      showToast(message, "error");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    navigate("/tree");
   };
 
   return (
@@ -48,7 +47,7 @@ export default function AddPersonPage() {
         gender, and tree side.
       </p>
       {error ? <p className="form-error">{error}</p> : null}
-      <PersonForm onSubmit={handleSubmit} onCancel={() => navigate("/tree")} />
+      <PersonForm onSubmit={handleSubmit} onCancel={handleCancel} />
       {isSaving ? <p>Saving...</p> : null}
     </section>
   );

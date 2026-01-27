@@ -6,6 +6,7 @@ import ProtectedRoute from "./utils/ProtectedRoute.jsx";
 import AddPersonPage from "./components/person/AddPersonPage.jsx";
 import AppHeader from "./components/layout/AppHeader.jsx";
 import EditPersonPage from "./components/person/EditPersonPage.jsx";
+import { useToast } from "./components/common/Toast.jsx";
 
 // Home page - redirects to tree or shows welcome message.
 const Home = () => (
@@ -23,10 +24,12 @@ const NotFound = () => (
 );
 
 export default function App() {
+  const { toast } = useToast();
+
   return (
     <div className="app-shell">
       <AppHeader />
-
+      {toast}
       <main className="app-main">
         <Routes>
           {/* Placeholder routes to be replaced with real features. */}
