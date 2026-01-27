@@ -59,7 +59,6 @@ export default function PersonForm({
   }, [initialValues]);
 
   const updateField = (field, value) => {
-    console.log("updateField called:", field, value);
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
