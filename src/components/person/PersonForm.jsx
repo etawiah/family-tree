@@ -305,7 +305,15 @@ export default function PersonForm({
           {isSaving ? "Saving..." : submitLabel}
         </button>
         {onCancel ? (
-          <button type="button" onClick={onCancel} disabled={isSaving}>
+          <button 
+            type="button" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onCancel();
+            }} 
+            disabled={isSaving}
+          >
             Cancel
           </button>
         ) : null}

@@ -492,7 +492,9 @@ export default function FamilyTreeView() {
         person={selectedPerson}
         relationships={relationships}
         isLoading={isDetailLoading}
-        onClose={() => {
+        onClose={async () => {
+          // Refresh tree data when closing detail view to show any changes
+          await Promise.all([refetchTree(), refetchPeople()]);
           setSelectedPerson(null);
           setIsEditOpen(false);
           setIsRelationshipOpen(false);
@@ -576,9 +578,14 @@ export default function FamilyTreeView() {
                   try {
                     await handleEditSubmit(values);
                     setEditSuccess("Person updated successfully.");
+                    // Refresh tree immediately
+                    await Promise.all([refetchTree(), refetchPeople()]);
                     setTimeout(() => {
                       setIsEditOpen(false);
                       setEditSuccess("");
+                      // Refresh again after closing to ensure tree is updated
+                      refetchTree();
+                      refetchPeople();
                     }, 700);
                   } catch (err) {
                     console.error("Edit error:", err);

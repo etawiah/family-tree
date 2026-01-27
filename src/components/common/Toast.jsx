@@ -43,6 +43,7 @@ export function Toast({ message, type = "info", onClose, duration = 5000 }) {
         borderRadius: "8px",
         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
         zIndex: 10000,
+        pointerEvents: "auto",
         maxWidth: "90%",
         minWidth: "300px",
         display: "flex",
