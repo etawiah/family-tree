@@ -101,53 +101,123 @@ export default function ImageUpload({
 
   return (
     <div className="image-upload">
-      <label className="form-field">
-        {label}
+      <div className="form-field">
+        {/* Field Header */}
+        <div className="field-header">
+          <span className="field-label">{label}</span>
+          <span className="optional-indicator">(Optional)</span>
+        </div>
+
+        {/* Hidden File Input */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
           onChange={handleInputChange}
           style={{ display: "none" }}
+          aria-label={`Upload ${label}`}
         />
-      </label>
 
-      <div
-        className="drop-zone"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        style={{ cursor: "pointer" }}
-      >
-        Drag & drop an image, or click to select.
-        <div style={{ fontSize: "0.85rem", marginTop: "0.5rem", color: "#64748b" }}>
-          Accepted: JPEG, PNG, WebP (max 10MB)
-        </div>
-      </div>
-
-      {preview ? <img src={preview} alt={`${label} preview`} /> : null}
-
-      {preview && onRemove ? (
-        <button
-          type="button"
-          className="ghost-button"
-          onClick={() => {
-            setPreview("");
-            setProgress(0);
-            setStatus("Photo removed (saved on update).");
-            onRemove?.();
+        {/* Drop Zone */}
+        <div
+          className="drop-zone"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              fileInputRef.current?.click();
+            }
           }}
+          aria-label={`Drop zone for ${label}, or press Enter to select file`}
         >
-          Remove photo
-        </button>
-      ) : null}
-
-      {status ? (
-        <div className="upload-status">
-          <span>{status}</span>
-          <progress value={progress} max="100" />
+          <div style={{ fontWeight: "500" }}>Drag & drop an image, or click to select</div>
+          <div style={{ fontSize: "0.85rem", marginTop: "0.5rem", color: "#64748b" }}>
+            or press Enter to browse files
+          </div>
         </div>
-      ) : null}
+
+        {/* Help Text */}
+        <div className="field-footer">
+          <span id={`${label}-help`} className="field-hint">
+            Accepted formats: JPEG, PNG, WebP. Maximum 10MB (will be compressed to under 500KB). Recommended: High-quality photos, well-lit, face clearly visible.
+          </span>
+        </div>
+
+        {/* Image Preview */}
+        {preview && (
+          <div className="image-preview-container" style={{ marginTop: "1rem" }}>
+            <img
+              src={preview}
+              alt={`${label} preview`}
+              className="image-preview"
+            />
+          </div>
+        )}
+
+        {/* Remove Button */}
+        {preview && onRemove ? (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              setPreview("");
+              setProgress(0);
+              setStatus("Photo removed (saved on update).");
+              onRemove?.();
+            }}
+            aria-label={`Remove ${label}`}
+          >
+            Remove photo
+          </button>
+        ) : null}
+
+        {/* Upload Status / Progress */}
+        {status ? (
+          <div
+            className="upload-status"
+            role="alert"
+            aria-live="polite"
+            style={{
+              marginTop: "1rem",
+              padding: "0.75rem",
+              borderRadius: "0.375rem",
+              backgroundColor:
+                status.includes("failed") || status.includes("Invalid")
+                  ? "#fee2e2"
+                  : status.includes("complete")
+                    ? "#dcfce7"
+                    : "#fef3c7",
+              color:
+                status.includes("failed") || status.includes("Invalid")
+                  ? "#dc2626"
+                  : status.includes("complete")
+                    ? "#16a34a"
+                    : "#92400e",
+            }}
+          >
+            <div style={{ marginBottom: progress > 0 ? "0.5rem" : "0" }}>
+              {status}
+            </div>
+            {progress > 0 && (
+              <progress
+                value={progress}
+                max="100"
+                style={{ width: "100%", height: "0.5rem" }}
+                aria-label={`Upload progress: ${progress}%`}
+              />
+            )}
+            {progress > 0 && progress < 100 && (
+              <div style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>
+                {progress}%
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

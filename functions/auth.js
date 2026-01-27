@@ -88,7 +88,9 @@ export async function verifyPassword(password, storedHash) {
 /**
  * Generate a signed JWT using HS256.
  *
- * The token expires in 24 hours to reduce risk if a token leaks.
+ * The token expires in 7 days to balance security with user convenience for a family app.
+ * Shorter expiration increases security if a token leaks, while longer expiration reduces
+ * the need for frequent re-authentication.
  *
  * @param {string} username
  * @param {"view"|"edit"|"admin"} accessLevel
@@ -102,7 +104,7 @@ export async function generateToken(username, accessLevel, jwtSecret) {
     sub: username,
     accessLevel,
     iat: now,
-    exp: now + 60 * 60 * 24,
+    exp: now + 60 * 60 * 24 * 7,
   };
 
   const headerB64 = base64UrlEncodeUtf8(JSON.stringify(header));

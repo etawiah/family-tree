@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
+import FieldLabel from "../common/FieldLabel.jsx";
+import * as validationRules from "../../utils/validationRules.js";
 
 const RELATIONSHIP_TYPES = [
   { label: "Parent", value: "parent" },
@@ -34,6 +36,7 @@ export default function RelationshipForm({
   const [relationshipOrder, setRelationshipOrder] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [warning, setWarning] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -167,42 +170,76 @@ export default function RelationshipForm({
     return null;
   }
 
+  /**
+   * Validate relationship form using centralized validation rules
+   */
   const getValidationErrors = () => {
-    const nextErrors = {};
+    return validationRules.validateRelationshipForm(
+      {
+        relationshipType,
+        relatedPersonId,
+        isBloodRelation,
+        marriageDate,
+        divorceDate,
+        relationshipOrder,
+      },
+      person?.id
+    );
+  };
 
-    if (!relationshipType) {
-      nextErrors.relationshipType = "Select a relationship type.";
-    }
+  /**
+   * Handle blur events for real-time validation
+   */
+  const handleBlur = (field) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
 
-    if (!relatedPersonId) {
-      nextErrors.relatedPersonId = "Select a related person.";
-    }
+    let fieldError = null;
 
-    if (String(relatedPersonId) === String(person.id)) {
-      nextErrors.relatedPersonId = "You cannot relate a person to themselves.";
-    }
-
-    if (isSpouseType && !marriageDate) {
-      nextErrors.marriageDate = "Marriage date is required.";
-    }
-
-    if (isExSpouse && !divorceDate) {
-      nextErrors.divorceDate = "Divorce date is required.";
-    }
-
-    if (isExSpouse && marriageDate && divorceDate) {
-      const marriage = new Date(marriageDate);
-      const divorce = new Date(divorceDate);
-      if (marriage > divorce) {
-        nextErrors.divorceDate = "Divorce date must be after marriage date.";
+    switch (field) {
+      case "relationshipType": {
+        const validation = validationRules.validateRelationshipType(relationshipType);
+        fieldError = validation.valid ? null : validation.error;
+        break;
       }
+      case "relatedPersonId": {
+        const validation = validationRules.validateRelatedPerson(relatedPersonId, person?.id);
+        fieldError = validation.valid ? null : validation.error;
+        break;
+      }
+      case "marriageDate": {
+        if (isSpouseType) {
+          const validation = validationRules.validateMarriageDate(marriageDate);
+          fieldError = validation.valid ? null : validation.error;
+        }
+        break;
+      }
+      case "divorceDate": {
+        if (isExSpouse) {
+          const validation = validationRules.validateDivorceDate(divorceDate, marriageDate);
+          fieldError = validation.valid ? null : validation.error;
+        }
+        break;
+      }
+      case "relationshipOrder": {
+        if (isSpouseType) {
+          const validation = validationRules.validateRelationshipOrder(relationshipOrder);
+          fieldError = validation.valid ? null : validation.error;
+        }
+        break;
+      }
+      default:
+        break;
     }
 
-    if (isSpouseType && (!relationshipOrder || relationshipOrder < 1)) {
-      nextErrors.relationshipOrder = "Marriage order must be 1 or higher.";
+    if (fieldError) {
+      setErrors((prev) => ({ ...prev, [field]: fieldError }));
+    } else {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     }
-
-    return nextErrors;
   };
 
   useEffect(() => {
@@ -228,6 +265,15 @@ export default function RelationshipForm({
     const nextErrors = getValidationErrors();
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) {
+      // Mark all fields as touched to show all errors
+      setTouched({
+        relationshipType: true,
+        relatedPersonId: true,
+        isBloodRelation: true,
+        marriageDate: true,
+        divorceDate: true,
+        relationshipOrder: true,
+      });
       return;
     }
 
@@ -320,109 +366,180 @@ export default function RelationshipForm({
         </header>
 
         <form className="relationship-form" onSubmit={handleSubmit}>
-          <label className="form-row">
-            Relationship Type
-            <select
-              value={relationshipType}
-              onChange={(event) => setRelationshipType(event.target.value)}
-            >
-              <option value="">Select type</option>
-              {RELATIONSHIP_TYPES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {errors.relationshipType ? (
-              <span className="form-error">{errors.relationshipType}</span>
-            ) : null}
-          </label>
-
-          <label className="form-row">
-            Related Person
-            <input
-              type="search"
-              placeholder="Search by name"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            <select
-              value={relatedPersonId}
-              onChange={(event) => setRelatedPersonId(event.target.value)}
-            >
-              <option value="">Select person</option>
-              {relatedPeople.length ? (
-                relatedPeople.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.first_name} {candidate.last_name} (Tree:{" "}
-                    {formatTreeSide(candidate.tree_side || treeSide)})
+          <FieldLabel
+            label="Relationship Type"
+            required
+            helpText="Select the type of relationship to create. Examples: Parent (mother/father), Child (son/daughter), Spouse (married partner), Sibling (brother/sister)."
+            error={errors.relationshipType}
+            fieldId="relationship-type"
+            touched={touched.relationshipType}
+          >
+            {(props) => (
+              <select
+                value={relationshipType}
+                onChange={(event) => setRelationshipType(event.target.value)}
+                onBlur={() => handleBlur("relationshipType")}
+                required
+                {...props}
+              >
+                <option value="">Select relationship type...</option>
+                {RELATIONSHIP_TYPES.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
-                ))
-              ) : (
-                <option value="" disabled>
-                  No matches found
-                </option>
-              )}
-            </select>
-            {errors.relatedPersonId ? (
-              <span className="form-error">{errors.relatedPersonId}</span>
-            ) : null}
+                ))}
+              </select>
+            )}
+          </FieldLabel>
+
+          {/* Related Person Field - Custom structure (search + select) */}
+          <label className="form-field">
+            <div className="field-header">
+              <span className="field-label">Related Person</span>
+              <span className="required-indicator" aria-label="required">*</span>
+            </div>
+
+            <div className="field-input-wrapper">
+              <div className="related-person-group">
+                <input
+                  type="search"
+                  id="related-person-search"
+                  placeholder="Search by name (e.g., John, Smith)"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="search-input"
+                  aria-label="Search for related person"
+                  aria-describedby="related-person-help"
+                />
+                <select
+                  id="related-person-select"
+                  value={relatedPersonId}
+                  onChange={(event) => setRelatedPersonId(event.target.value)}
+                  onBlur={() => handleBlur("relatedPersonId")}
+                  required
+                  aria-describedby="related-person-help related-person-error"
+                  aria-invalid={errors.relatedPersonId && touched.relatedPersonId ? "true" : "false"}
+                  aria-required="true"
+                >
+                  <option value="">Select person...</option>
+                  {relatedPeople.length ? (
+                    relatedPeople.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.first_name} {candidate.last_name} (Tree:{" "}
+                        {formatTreeSide(candidate.tree_side || treeSide)})
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" disabled>
+                      No matches found
+                    </option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div className="field-footer">
+              <span id="related-person-help" className="field-hint">
+                Search for and select the person to link to. You can search by first or last name. Select from the dropdown after finding the person.
+              </span>
+            </div>
+
+            {errors.relatedPersonId && touched.relatedPersonId && (
+              <span
+                id="related-person-error"
+                className="form-error"
+                role="alert"
+              >
+                {errors.relatedPersonId}
+              </span>
+            )}
           </label>
 
-          <label className="form-row checkbox-row">
-            <input
-              type="checkbox"
-              checked={isBloodRelation}
-              onChange={(event) => setIsBloodRelation(event.target.checked)}
-            />
-            Is blood relation
-          </label>
+          <FieldLabel
+            label="Is Blood Relation"
+            optional
+            helpText="Check if this is a biological/blood relation. Uncheck for step-relations or adoptive relationships."
+            error={errors.isBloodRelation}
+            fieldId="is-blood-relation"
+            touched={touched.isBloodRelation}
+          >
+            {(props) => (
+              <input
+                type="checkbox"
+                checked={isBloodRelation}
+                onChange={(event) => setIsBloodRelation(event.target.checked)}
+                onBlur={() => setTouched((prev) => ({ ...prev, isBloodRelation: true }))}
+                {...props}
+              />
+            )}
+          </FieldLabel>
 
           {isSpouseType ? (
             <>
-              <label className="form-row">
-                Marriage Date
-                <input
-                  type="date"
-                  value={marriageDate}
-                  onChange={(event) => setMarriageDate(event.target.value)}
-                />
-                {errors.marriageDate ? (
-                  <span className="form-error">{errors.marriageDate}</span>
-                ) : null}
-              </label>
-
-              {isExSpouse ? (
-                <label className="form-row">
-                  Divorce Date
+              <FieldLabel
+                label="Marriage Date"
+                required={isSpouseType}
+                helpText="Enter the marriage date in YYYY-MM-DD format (e.g., 2010-06-20). Cannot be in the future."
+                error={errors.marriageDate}
+                fieldId="marriage-date"
+                touched={touched.marriageDate}
+              >
+                {(props) => (
                   <input
                     type="date"
-                    value={divorceDate}
-                    onChange={(event) => setDivorceDate(event.target.value)}
+                    value={marriageDate}
+                    onChange={(event) => setMarriageDate(event.target.value)}
+                    onBlur={() => handleBlur("marriageDate")}
+                    max={new Date().toISOString().split("T")[0]}
+                    required={isSpouseType}
+                    {...props}
                   />
-                  {errors.divorceDate ? (
-                    <span className="form-error">{errors.divorceDate}</span>
-                  ) : null}
-                </label>
+                )}
+              </FieldLabel>
+
+              {isExSpouse ? (
+                <FieldLabel
+                  label="Divorce Date"
+                  required={isExSpouse}
+                  helpText="Enter the divorce date in YYYY-MM-DD format. Must be after the marriage date and not in the future."
+                  error={errors.divorceDate}
+                  fieldId="divorce-date"
+                  touched={touched.divorceDate}
+                >
+                  {(props) => (
+                    <input
+                      type="date"
+                      value={divorceDate}
+                      onChange={(event) => setDivorceDate(event.target.value)}
+                      onBlur={() => handleBlur("divorceDate")}
+                      max={new Date().toISOString().split("T")[0]}
+                      required={isExSpouse}
+                      {...props}
+                    />
+                  )}
+                </FieldLabel>
               ) : null}
 
-              <label className="form-row">
-                Marriage Order (1st, 2nd, etc.)
-                <input
-                  type="number"
-                  min="1"
-                  value={relationshipOrder}
-                  onChange={(event) => setRelationshipOrder(Number(event.target.value))}
-                />
-                {existingMarriages.length > 0 ? (
-                  <span style={{ fontSize: "0.85rem", color: "#64748b" }}>
-                    Existing marriages: {existingMarriages.length}. Suggested: {relationshipOrder}
-                  </span>
-                ) : null}
-                {errors.relationshipOrder ? (
-                  <span className="form-error">{errors.relationshipOrder}</span>
-                ) : null}
-              </label>
+              <FieldLabel
+                label="Marriage Order"
+                required={isSpouseType}
+                helpText={`Which marriage is this? (1st, 2nd, 3rd, etc.) This person has ${existingMarriages.length} existing marriage(s). Suggested: ${relationshipOrder}`}
+                error={errors.relationshipOrder}
+                fieldId="relationship-order"
+                touched={touched.relationshipOrder}
+              >
+                {(props) => (
+                  <input
+                    type="number"
+                    min="1"
+                    value={relationshipOrder}
+                    onChange={(event) => setRelationshipOrder(Number(event.target.value))}
+                    onBlur={() => handleBlur("relationshipOrder")}
+                    required={isSpouseType}
+                    {...props}
+                  />
+                )}
+              </FieldLabel>
             </>
           ) : null}
 

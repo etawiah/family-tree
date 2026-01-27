@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PersonForm from "./PersonForm.jsx";
+import ErrorDisplay from "../common/ErrorDisplay.jsx";
 import { useToast } from "../common/Toast.jsx";
 import { apiRequest } from "../../utils/api.js";
 
@@ -46,7 +47,13 @@ export default function AddPersonPage() {
         Fill out the details below. Required fields are first name, last name,
         gender, and tree side.
       </p>
-      {error ? <p className="form-error">{error}</p> : null}
+      <ErrorDisplay
+        error={error}
+        onRetry={() => {}}
+        onClear={() => setError("")}
+        canRetry={false}
+        clearLabel="Dismiss"
+      />
       <PersonForm onSubmit={handleSubmit} onCancel={handleCancel} />
       {isSaving ? <p>Saving...</p> : null}
     </section>

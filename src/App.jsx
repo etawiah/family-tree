@@ -1,4 +1,5 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import LoginForm from "./components/auth/LoginForm.jsx";
 import AdminDashboard from "./components/admin/AdminDashboard.jsx";
 import FamilyTreeView from "./components/tree/FamilyTreeView.jsx";
@@ -6,15 +7,30 @@ import ProtectedRoute from "./utils/ProtectedRoute.jsx";
 import AddPersonPage from "./components/person/AddPersonPage.jsx";
 import AppHeader from "./components/layout/AppHeader.jsx";
 import EditPersonPage from "./components/person/EditPersonPage.jsx";
+import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
 import { useToast } from "./components/common/Toast.jsx";
+import { isAuthenticated } from "./services/auth.js";
 
-// Home page - redirects to tree or shows welcome message.
-const Home = () => (
-  <section className="page">
-    <h1>E. Tawiah Family Tree</h1>
-    <p>Welcome to the family tree application.</p>
-  </section>
-);
+// Home page - smart redirect based on authentication status
+const Home = () => {
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    // Simulate a brief check (authentication status is synchronous, but this ensures smooth transition)
+    const timer = setTimeout(() => setIsChecking(false), 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isChecking) {
+    return (
+      <section className="page">
+        <p>Loading...</p>
+      </section>
+    );
+  }
+
+  return isAuthenticated() ? <Navigate to="/tree" replace /> : <Navigate to="/login" replace />;
+};
 
 const NotFound = () => (
   <section className="page">
@@ -25,34 +41,49 @@ const NotFound = () => (
 
 export default function App() {
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleTokenExpired = () => {
+      toast("Your session has expired. Please log in again.", "error");
+      navigate("/login", { replace: true });
+    };
+
+    window.addEventListener("token-expired", handleTokenExpired);
+    return () => {
+      window.removeEventListener("token-expired", handleTokenExpired);
+    };
+  }, [navigate, toast]);
 
   return (
     <div className="app-shell">
       <AppHeader />
       {toast}
       <main className="app-main">
-        <Routes>
-          {/* Placeholder routes to be replaced with real features. */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<LoginForm />} />
+        <ErrorBoundary>
+          <Routes>
+            {/* Placeholder routes to be replaced with real features. */}
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<LoginForm />} />
 
-          {/* View-level access: read-only tree view. */}
-          <Route element={<ProtectedRoute requiredLevel="view" />}>
-            <Route path="/tree" element={<FamilyTreeView />} />
-          </Route>
+            {/* View-level access: read-only tree view. */}
+            <Route element={<ProtectedRoute requiredLevel="view" />}>
+              <Route path="/tree" element={<FamilyTreeView />} />
+            </Route>
 
-          {/* Admin-level access: full control panels. */}
-          <Route element={<ProtectedRoute requiredLevel="admin" />}>
-            <Route path="/admin" element={<AdminDashboard />} />
-          </Route>
+            {/* Admin-level access: full control panels. */}
+            <Route element={<ProtectedRoute requiredLevel="admin" />}>
+              <Route path="/admin" element={<AdminDashboard />} />
+            </Route>
 
-          {/* Edit-level access: create new people entries. */}
-          <Route element={<ProtectedRoute requiredLevel="edit" />}>
-            <Route path="/people/new" element={<AddPersonPage />} />
-            <Route path="/people/:id/edit" element={<EditPersonPage />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Edit-level access: create new people entries. */}
+            <Route element={<ProtectedRoute requiredLevel="edit" />}>
+              <Route path="/people/new" element={<AddPersonPage />} />
+              <Route path="/people/:id/edit" element={<EditPersonPage />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   );

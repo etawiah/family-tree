@@ -1,4 +1,4 @@
-import { getToken } from "../services/auth.js";
+import { getToken, logout } from "../services/auth.js";
 
 /**
  * Centralized API error handling with user-friendly messages.
@@ -27,6 +27,13 @@ export async function apiRequest(url, options = {}) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      // Handle token expiration: 401 with existing token means it expired
+      if (response.status === 401 && getToken() !== null) {
+        logout();
+        window.dispatchEvent(new CustomEvent("token-expired"));
+        throw new Error("Your session has expired. Please log in again.");
+      }
+
       const errorMessage = getUserFriendlyError(response.status, data?.error);
       throw new Error(errorMessage);
     }

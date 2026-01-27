@@ -369,21 +369,6 @@ export default function FamilyTreeView() {
   };
 
   if (isTreeLoading || isPeopleLoading) {
-    return <div className="page">Loading tree...</div>;
-  }
-
-  if (treeError || peopleError) {
-    return (
-      <div className="page">
-        <p>
-          Unable to load the tree.{" "}
-          {(treeError || peopleError)?.message || "Unknown error"}
-        </p>
-      </div>
-    );
-  }
-
-  if (isTreeLoading) {
     return (
       <section className="page tree-page">
         <TreeSelector treeSide={treeSide} onChange={setTreeSide} />
@@ -394,15 +379,18 @@ export default function FamilyTreeView() {
     );
   }
 
-  if (treeError) {
+  if (treeError || peopleError) {
     return (
       <section className="page tree-page">
         <TreeSelector treeSide={treeSide} onChange={setTreeSide} />
         <div className="empty-state">
           <p className="form-error">
-            {treeError.message || "Unable to load family tree. Please refresh the page."}
+            {(treeError || peopleError)?.message || "Unable to load family tree. Please refresh the page."}
           </p>
-          <button type="button" onClick={() => refetchTree()}>
+          <button type="button" onClick={() => {
+            refetchTree();
+            refetchPeople();
+          }}>
             Retry
           </button>
         </div>
