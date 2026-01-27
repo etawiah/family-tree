@@ -35,7 +35,7 @@ export function useKeyboardShortcuts() {
       if (event.key === "/") {
         // Focus search input if available
         event.preventDefault();
-        const searchInput = document.querySelector('input[placeholder*="Search"], input[placeholder*="search"]');
+        const searchInput = document.getElementById("person-search");
         if (searchInput) {
           searchInput.focus();
         }

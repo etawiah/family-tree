@@ -49,6 +49,7 @@ export default function TreeControls({
 
       <form className="search-row" onSubmit={handleSearch}>
         <input
+          id="person-search"
           type="search"
           placeholder="Find a person by name (Press / to focus)"
           value={query}
