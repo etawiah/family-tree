@@ -102,6 +102,24 @@ body {
   padding: 0.6rem;
   border-radius: 8px;
   border: 1px solid #cbd5f5;
+  font-size: 1rem;
+  font-family: inherit;
+  background-color: #ffffff;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+  border-color: #1d4ed8;
+}
+
+.form-field input:disabled,
+.form-field select:disabled,
+.form-field textarea:disabled {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
 }
 
 .form-field.checkbox {

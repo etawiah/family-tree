@@ -59,6 +59,7 @@ export default function PersonForm({
   }, [initialValues]);
 
   const updateField = (field, value) => {
+    console.log("updateField called:", field, value);
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -122,6 +123,7 @@ export default function PersonForm({
         <label className="form-field">
           Middle name
           <input
+            type="text"
             value={formState.middle_name}
             onChange={(event) => updateField("middle_name", event.target.value)}
           />
@@ -226,6 +228,7 @@ export default function PersonForm({
         <label className="form-field">
           Location
           <input
+            type="text"
             value={formState.current_location}
             onChange={(event) =>
               updateField("current_location", event.target.value)
@@ -236,6 +239,7 @@ export default function PersonForm({
         <label className="form-field">
           Profession
           <input
+            type="text"
             value={formState.profession}
             onChange={(event) => updateField("profession", event.target.value)}
           />
