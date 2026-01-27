@@ -6,6 +6,7 @@ import TreeControls from "./TreeControls.jsx";
 import TreeSelector from "./TreeSelector.jsx";
 import { PersonNode, TreeLegend } from "./PersonNode.jsx";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
 import PersonDetail from "../person/PersonDetail.jsx";
 import PersonForm from "../person/PersonForm.jsx";
 import RelationshipForm from "../relationships/RelationshipForm.jsx";
@@ -41,7 +42,26 @@ export default function FamilyTreeView() {
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
   const queryClient = useQueryClient();
 
+  // Enable keyboard shortcuts (Esc to close modals, / to search)
+  useKeyboardShortcuts();
+
   const baseUrl = import.meta.env.VITE_API_URL;
+
+  // Handle Esc key to close modals
+  useEffect(() => {
+    const handleCloseModal = () => {
+      setSelectedPerson(null);
+      setIsRelationshipOpen(false);
+      setIsEditOpen(false);
+      setIsQuickAddOpen(false);
+      setIsCreatePersonOpen(false);
+    };
+
+    window.addEventListener("keyboard-close-modal", handleCloseModal);
+    return () => {
+      window.removeEventListener("keyboard-close-modal", handleCloseModal);
+    };
+  }, []);
 
   const {
     data: treeDataResponse,

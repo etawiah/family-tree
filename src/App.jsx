@@ -10,6 +10,7 @@ import EditPersonPage from "./components/person/EditPersonPage.jsx";
 import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
 import OfflineBanner from "./components/common/OfflineBanner.jsx";
 import { useToast } from "./components/common/Toast.jsx";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts.js";
 import { isAuthenticated } from "./services/auth.js";
 
 // Home page - smart redirect based on authentication status
@@ -43,6 +44,7 @@ const NotFound = () => (
 export default function App() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  useKeyboardShortcuts(); // Enable essential keyboard shortcuts
 
   useEffect(() => {
     const handleTokenExpired = () => {

@@ -50,9 +50,10 @@ export default function TreeControls({
       <form className="search-row" onSubmit={handleSearch}>
         <input
           type="search"
-          placeholder="Find a person by name"
+          placeholder="Find a person by name (Press / to focus)"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          title="Search for a person by name. Tip: Press / to focus this field"
         />
         <button type="submit">Search</button>
       </form>

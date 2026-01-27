@@ -106,21 +106,41 @@ export async function apiRequest(url, options = {}) {
 }
 
 /**
- * Convert technical error codes to user-friendly messages.
+ * Convert technical error codes to user-friendly, actionable messages.
+ * Provides specific guidance based on error type.
  */
 function getUserFriendlyError(status, technicalError) {
-  switch (status) {
-    case 400:
-      return technicalError || "Invalid information. Please check your input and try again.";
-    case 401:
-      return "Your session has expired. Please log in again.";
-    case 403:
-      return "You don't have permission to perform this action.";
-    case 404:
-      return "Item not found. It may have been deleted.";
-    case 500:
-      return "Server error. Please try again later.";
-    default:
-      return technicalError || "Something went wrong. Please try again.";
+  const messages = {
+    400: technicalError || "Invalid information. Please check your input and try again.",
+    401: "Your session has expired. Please log in again.",
+    403: "You don't have permission to perform this action.",
+    404: "Item not found. It may have been deleted.",
+    409: "This already exists. Please check for duplicates.",
+    413: "File too large. Maximum size is 1MB.",
+    415: "Invalid file type. Please use JPEG, PNG, or WebP.",
+    429: "Too many requests. Please wait a moment and try again.",
+    500: "Server error. Please try again later.",
+    502: "The server is temporarily unavailable. Please try again.",
+    503: "Service is temporarily unavailable. Please try again later.",
+  };
+
+  // Return specific message or fallback to technical error or generic message
+  if (messages[status]) {
+    return messages[status];
   }
+
+  if (technicalError) {
+    return technicalError;
+  }
+
+  // Generic fallback based on status code range
+  if (status >= 500) {
+    return "Server error. Please try again later.";
+  }
+
+  if (status >= 400) {
+    return "Request failed. Please check your input and try again.";
+  }
+
+  return "Something went wrong. Please try again.";
 }
