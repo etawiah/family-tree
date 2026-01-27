@@ -11,8 +11,13 @@ const queryClient = new QueryClient({
     queries: {
       // Cache data briefly to avoid refetching on every navigation.
       staleTime: 5 * 60 * 1000,
-      // Keep retries minimal for a snappy UI during early development.
-      retry: 1,
+      // Retry failed requests up to 3 times with exponential backoff
+      // This improves reliability on unstable connections
+      retry: 3,
+      retryDelay: (attemptIndex) => {
+        // Exponential backoff: 1s, 2s, 4s, 8s (capped at 30s)
+        return Math.min(1000 * Math.pow(2, attemptIndex), 30000);
+      },
     },
   },
 });

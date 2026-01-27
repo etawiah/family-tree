@@ -8,6 +8,7 @@ import AddPersonPage from "./components/person/AddPersonPage.jsx";
 import AppHeader from "./components/layout/AppHeader.jsx";
 import EditPersonPage from "./components/person/EditPersonPage.jsx";
 import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
+import OfflineBanner from "./components/common/OfflineBanner.jsx";
 import { useToast } from "./components/common/Toast.jsx";
 import { isAuthenticated } from "./services/auth.js";
 
@@ -58,6 +59,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <AppHeader />
+      <OfflineBanner />
       {toast}
       <main className="app-main">
         <ErrorBoundary>

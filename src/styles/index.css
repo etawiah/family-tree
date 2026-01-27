@@ -214,12 +214,6 @@ body {
 .empty-state .button-link:hover {
   background: #1e40af;
 }
-  margin-top: 2rem;
-  padding: 2rem;
-  border-radius: 16px;
-  background: #f8fafc;
-  text-align: center;
-}
 
 .button-link {
   display: inline-flex;

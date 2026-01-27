@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import PersonForm from "./PersonForm.jsx";
 import ErrorDisplay from "../common/ErrorDisplay.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
@@ -15,6 +16,7 @@ export default function EditPersonPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const { execute: executeDelete, loading: isDeleting, error: deleteError, retry: retryDelete, clearError: clearDeleteError, retryCount: deleteRetryCount } = useApiRequest();
   const [person, setPerson] = useState(null);
   const [relationships, setRelationships] = useState([]);
@@ -50,6 +52,14 @@ export default function EditPersonPage() {
         body: JSON.stringify(values),
       });
 
+      // Invalidate related queries so tree updates with new data
+      // This provides fast feedback without waiting for refetch
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tree"] }),
+        queryClient.invalidateQueries({ queryKey: ["people"] }),
+        queryClient.invalidateQueries({ queryKey: ["person", id] }),
+      ]);
+
       showToast("Person updated successfully", "success");
       setTimeout(() => {
         navigate("/tree");
@@ -79,6 +89,12 @@ export default function EditPersonPage() {
       await executeDelete(`/api/people/${id}`, {
         method: "DELETE",
       }, true);
+
+      // Invalidate queries so tree reflects deletion
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tree"] }),
+        queryClient.invalidateQueries({ queryKey: ["people"] }),
+      ]);
 
       showToast("Person deleted successfully", "success");
       setTimeout(() => {

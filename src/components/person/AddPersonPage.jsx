@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import PersonForm from "./PersonForm.jsx";
 import ErrorDisplay from "../common/ErrorDisplay.jsx";
 import { useToast } from "../common/Toast.jsx";
@@ -11,6 +12,7 @@ import { apiRequest } from "../../utils/api.js";
 export default function AddPersonPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -22,6 +24,13 @@ export default function AddPersonPage() {
         method: "POST",
         body: JSON.stringify(values),
       });
+
+      // Invalidate tree and people queries so fresh data loads when navigating back
+      // This provides optimistic-like experience: user sees new person immediately
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tree"] }),
+        queryClient.invalidateQueries({ queryKey: ["people"] }),
+      ]);
 
       showToast("Person added successfully", "success");
       setTimeout(() => {
