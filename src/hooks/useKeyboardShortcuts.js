@@ -18,36 +18,31 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (event) => {
+      // Check if we're typing in an input field (more robust check for Edge compatibility)
+      const isInputLike =
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement ||
+        event.target.contentEditable === "true";
+
       // Don't trigger shortcuts when typing in inputs
-      if (
-        event.target.matches("input") ||
-        event.target.matches("textarea") ||
-        event.target.matches("select")
-      ) {
-        // Allow Esc even when typing (for canceling)
-        if (event.key !== "Escape") {
-          return;
-        }
+      if (isInputLike && event.key !== "Escape") {
+        // Allow normal input handling - don't preventDefault()
+        return;
       }
 
-      switch (event.key) {
-        case "/":
-          // Focus search input if available
-          event.preventDefault();
-          const searchInput = document.querySelector('input[placeholder*="Search"], input[placeholder*="search"]');
-          if (searchInput) {
-            searchInput.focus();
-          }
-          break;
-
-        case "Escape":
-          // Close modals
-          event.preventDefault();
-          handleCloseModal();
-          break;
-
-        default:
-          break;
+      // Only handle specific shortcuts
+      if (event.key === "/") {
+        // Focus search input if available
+        event.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="Search"], input[placeholder*="search"]');
+        if (searchInput) {
+          searchInput.focus();
+        }
+      } else if (event.key === "Escape") {
+        // Close modals - only prevent default for Escape
+        event.preventDefault();
+        handleCloseModal();
       }
     };
 

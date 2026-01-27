@@ -351,7 +351,7 @@ export default function PersonForm({
         <FieldLabel
           label="Birth Date"
           optional
-          helpText="Enter birth date in YYYY-MM-DD format (e.g., 1990-05-15). Cannot be in the future."
+          helpText="Enter birth date in MM/DD/YYYY format (e.g., 05/15/1990). Cannot be in the future."
           error={errors.birth_date}
           fieldId="birth-date"
           touched={touched.birth_date}
@@ -371,7 +371,7 @@ export default function PersonForm({
         <FieldLabel
           label="Death Date"
           optional
-          helpText="Enter death date if deceased. Must be after birth date and not in the future."
+          helpText="Enter death date in MM/DD/YYYY format (e.g., 03/20/2015) if deceased. Must be after birth date and not in the future."
           error={errors.death_date}
           fieldId="death-date"
           touched={touched.death_date}
@@ -496,7 +496,7 @@ export default function PersonForm({
           <FieldLabel
             label="Marriage Date"
             required={quickAddType === "spouse"}
-            helpText="Enter the marriage date in YYYY-MM-DD format (e.g., 2010-06-20). Cannot be in the future."
+            helpText="Enter the marriage date in MM/DD/YYYY format (e.g., 06/20/2010). Cannot be in the future."
             error={errors.marriage_date}
             fieldId="marriage-date"
             touched={touched.marriage_date}
@@ -561,14 +561,13 @@ export default function PersonForm({
           {isSaving ? "Saving..." : submitLabel}
         </button>
         {onCancel ? (
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onCancel();
-            }} 
-            disabled={isSaving}
+            }}
           >
             Cancel
           </button>

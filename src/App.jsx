@@ -42,21 +42,27 @@ const NotFound = () => (
 );
 
 export default function App() {
-  const { toast } = useToast();
+  const { toast, showToast } = useToast();
   const navigate = useNavigate();
   useKeyboardShortcuts(); // Enable essential keyboard shortcuts
 
   useEffect(() => {
     const handleTokenExpired = () => {
-      toast("Your session has expired. Please log in again.", "error");
+      showToast("Your session has expired. Please log in again.", "error");
       navigate("/login", { replace: true });
     };
 
+    const handleUserLoggedOut = () => {
+      showToast("Logged out successfully", "success");
+    };
+
     window.addEventListener("token-expired", handleTokenExpired);
+    window.addEventListener("user-logged-out", handleUserLoggedOut);
     return () => {
       window.removeEventListener("token-expired", handleTokenExpired);
+      window.removeEventListener("user-logged-out", handleUserLoggedOut);
     };
-  }, [navigate, toast]);
+  }, [navigate, showToast]);
 
   return (
     <div className="app-shell">

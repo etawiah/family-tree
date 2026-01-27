@@ -11,7 +11,12 @@ export default function AppHeader() {
 
   const handleLogout = () => {
     logout();
-    navigate("/");
+    // Navigate directly to login page and replace history to prevent back button issues
+    navigate("/login", { replace: true });
+    // Small delay to ensure navigation completes before dispatch
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("user-logged-out"));
+    }, 0);
   };
 
   return (
