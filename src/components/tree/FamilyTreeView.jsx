@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import * as f3 from "family-chart";
@@ -25,6 +25,8 @@ export default function FamilyTreeView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [personDetailData, setPersonDetailData] = useState(null);
   const [personDetailLoading, setPersonDetailLoading] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomTransform, setZoomTransform] = useState({ x: 0, y: 0, k: 1 });
 
   // Fetch tree data in family-chart format
   const { data: treeResponse, isLoading, error, refetch } = useQuery({
@@ -73,6 +75,18 @@ export default function FamilyTreeView() {
         store,
         svg,
       });
+
+      // Configure view mode
+      if (viewMode === "descendant") {
+        chart.setAncestryDepth(0);  // Hide ancestors
+        chart.setProgenyDepth(10);   // Show descendants
+      } else if (viewMode === "pedigree") {
+        chart.setAncestryDepth(10);  // Show ancestors
+        chart.setProgenyDepth(0);    // Hide descendants
+      }
+
+      // Enable branch toggles for expand/collapse
+      chart.setDuplicateBranchToggle(true);
 
       // Add cards
       const cards = f3.elements.Card({
@@ -127,8 +141,17 @@ export default function FamilyTreeView() {
       // Store chart reference for controls
       chartRef.current = { store, svg, chart, cards };
 
+      // Reset zoom when tree is recreated
+      setZoomLevel(1);
+      setZoomTransform({ x: 0, y: 0, k: 1 });
+
       // Render the tree
       store.update.tree({ initial: true });
+      
+      // Apply initial zoom transform after a brief delay to ensure SVG is rendered
+      setTimeout(() => {
+        applyZoomTransform(1);
+      }, 100);
     } catch (err) {
       console.error("Error initializing family-chart:", err);
       showToast(`Error rendering tree: ${err.message}`, "error");
@@ -142,32 +165,44 @@ export default function FamilyTreeView() {
         containerRef.current.innerHTML = "";
       }
     };
-  }, [treeData, viewMode, showToast]);
+  }, [treeData, viewMode, showToast, applyZoomTransform]);
 
   // Handle zoom controls
   const handleZoomIn = () => {
     if (chartRef.current?.svg) {
-      // Family-chart manages its own zoom, so we'll trigger re-render
-      // This is a simplification - actual zoom implementation depends on family-chart internals
-      showToast("Zoom in", "info");
+      const newZoom = Math.min(zoomLevel + 0.1, 2.0);
+      setZoomLevel(newZoom);
+      applyZoomTransform(newZoom);
+      showToast(`Zoom: ${Math.round(newZoom * 100)}%`, "info");
     }
   };
 
   const handleZoomOut = () => {
     if (chartRef.current?.svg) {
-      showToast("Zoom out", "info");
+      const newZoom = Math.max(zoomLevel - 0.1, 0.3);
+      setZoomLevel(newZoom);
+      applyZoomTransform(newZoom);
+      showToast(`Zoom: ${Math.round(newZoom * 100)}%`, "info");
     }
   };
 
   const handleReset = () => {
-    if (chartRef.current?.svg) {
-      showToast("View reset", "info");
+    if (chartRef.current?.chart && chartRef.current?.svg) {
+      setZoomLevel(1);
+      setZoomTransform({ x: 0, y: 0, k: 1 });
+      applyZoomTransform(1);
+      chartRef.current.chart.updateTree({ tree_position: 'main_to_middle' });
+      showToast("View reset", "success");
     }
   };
 
   const handleFitToScreen = () => {
-    if (chartRef.current?.svg) {
-      showToast("Fit to screen", "info");
+    if (chartRef.current?.chart) {
+      chartRef.current.chart.updateTree({ tree_position: 'fit' });
+      setZoomLevel(1);
+      setZoomTransform({ x: 0, y: 0, k: 1 });
+      applyZoomTransform(1);
+      showToast("Fitted to screen", "success");
     }
   };
 
@@ -201,17 +236,19 @@ export default function FamilyTreeView() {
   };
 
   const handleExpandAll = () => {
-    showToast(
-      "Click on person's branch icon to expand",
-      "info"
-    );
+    if (chartRef.current?.chart) {
+      // Trigger tree update - library expands all by default when updating
+      chartRef.current.chart.updateTree({ initial: false });
+      showToast("All branches expanded. Click branch icons to collapse.", "success");
+    }
   };
 
   const handleCollapseAll = () => {
-    showToast(
-      "Click on person's branch icon to collapse",
-      "info"
-    );
+    if (chartRef.current?.chart) {
+      // Note: Programmatic collapse requires manipulating store internals
+      // For now, provide user guidance
+      showToast("Click on person's branch icon to collapse branches", "info");
+    }
   };
 
   // Fetch person detail data when selectedPerson changes
