@@ -268,10 +268,33 @@ export default function FamilyTreeView() {
         searchQuery={searchQuery}
       />
 
+      {/* Legend for color coding */}
+      <div className="tree-legend">
+        <span className="legend-title">Legend:</span>
+        <div className="legend-items">
+          <div className="legend-item">
+            <span className="legend-color maternal"></span>
+            <span>Maternal Ancestry</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color paternal"></span>
+            <span>Paternal Ancestry</span>
+          </div>
+          <div className="legend-item">
+            <span className="legend-color both"></span>
+            <span>Both Lineages</span>
+          </div>
+          <div className="legend-item">
+            <span className="deceased-icon">†</span>
+            <span>Deceased</span>
+          </div>
+        </div>
+      </div>
+
       <div
         ref={containerRef}
         className="family-chart-container"
-        style={{ width: "100%", height: "calc(100vh - 250px)" }}
+        style={{ width: "100%", height: "calc(100vh - 320px)" }}
       />
 
       {showDetail && selectedPerson && (
