@@ -33,17 +33,26 @@ export default function FamilyTreeView() {
     queryKey: ["family-chart-tree"],
     queryFn: async () => {
       const token = localStorage.getItem("family_tree_token") || "";
+      console.log("[FamilyTreeView] Fetching tree from:", `${baseUrl}/api/tree/family-chart`);
+      console.log("[FamilyTreeView] Token present:", !!token);
+
       const response = await fetch(`${baseUrl}/api/tree/family-chart`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
+      console.log("[FamilyTreeView] API response status:", response.status);
+
       if (!response.ok) {
+        console.error("[FamilyTreeView] API error:", response.statusText);
         throw new Error(`Failed to fetch tree: ${response.statusText}`);
       }
 
-      return response.json();
+      const data = await response.json();
+      console.log("[FamilyTreeView] Tree data received:", data);
+      console.log("[FamilyTreeView] Tree length:", data.tree?.length || 0);
+      return data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -82,7 +91,15 @@ export default function FamilyTreeView() {
 
   // Initialize family-chart
   useEffect(() => {
-    if (!containerRef.current || treeData.length === 0) return;
+    console.log("[FamilyTreeView useEffect] treeData length:", treeData.length, "viewMode:", viewMode);
+    console.log("[FamilyTreeView useEffect] containerRef.current exists:", !!containerRef.current);
+
+    if (!containerRef.current || treeData.length === 0) {
+      console.log("[FamilyTreeView useEffect] Returning early - no container or empty data");
+      return;
+    }
+
+    console.log("[FamilyTreeView useEffect] Initializing chart with", treeData.length, 'people');
 
     // Clear previous chart
     containerRef.current.innerHTML = "";

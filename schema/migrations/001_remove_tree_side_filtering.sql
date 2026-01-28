@@ -13,14 +13,9 @@
 -- - Queries return all relationships without tree_side filtering
 -- - Frontend calculates ancestry for color-coding
 
-BEGIN TRANSACTION;
-
--- Step 1: Identify people with dual lineage
+-- Set tree_side to NULL for dual-lineage people
 -- These people have relationships from both maternal and paternal sides
 -- Example: You (child) has a maternal parent and a paternal parent
-
--- Step 2: Set tree_side to NULL for dual-lineage people
--- This indicates they belong to both lineages
 UPDATE people
 SET tree_side = NULL
 WHERE id IN (
@@ -34,11 +29,3 @@ WHERE id IN (
       AND r1.tree_side IS NOT NULL
   )
 );
-
--- Step 3: Verify the update
--- After this migration, query should show people with:
--- - tree_side = 'maternal' (only maternal relationships)
--- - tree_side = 'paternal' (only paternal relationships)
--- - tree_side = NULL (dual lineage)
-
-COMMIT;

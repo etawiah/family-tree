@@ -9,7 +9,18 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nImplement Phase 6: UX Enhancements \\(Enhancements 4-5\\)\n\n**Enhancement 4: Keyboard Shortcuts \\(Essential Tier\\)**\n- Create useKeyboardShortcuts hook for global keyboard handling\n- Implements essential shortcuts only:\n  - \"/\" → Focus search input\n  - \"Esc\" → Close modals/sidebars\n- Smart input detection: Shortcuts disabled when typing \\(except Esc\\)\n- FamilyTreeView listens for keyboard-close-modal event\n- Closes all open modals/sidebars when Esc pressed\n- Search input hint shows \"Press / to focus\"\n- No conflicts with user input or form fields\n\n**Enhancement 5: Improved Error Messages**\n- Enhanced getUserFriendlyError function in api.js\n- More specific status code messages:\n  - 400: Invalid information\n  - 401: Session expired\n  - 403: Permission denied\n  - 404: Item not found\n  - 409: Already exists \\(conflict\\)\n  - 413: File too large\n  - 415: Invalid file type\n  - 429: Too many requests\n  - 500/502/503: Server/service errors\n- Actionable guidance in every message\n- Fallback logic for unmapped status codes\n- Technical errors logged in dev mode only\n\n**User Experience Improvements**\n- Faster navigation with keyboard shortcuts\n- Better error messages guide users to solutions\n- Consistent error communication across app\n- Accessibility maintained \\(ARIA alerts, proper focus\\)\n\n**Files Created**\n- src/hooks/useKeyboardShortcuts.js\n\n**Files Updated**\n- src/App.jsx \\(enable keyboard shortcuts globally\\)\n- src/utils/api.js \\(enhanced error messages\\)\n- src/components/tree/FamilyTreeView.jsx \\(Esc handler for modals\\)\n- src/components/tree/TreeControls.jsx \\(search shortcut hint\\)\n\n**Build Status**\n✓ Build successful\n✓ All enhancements tested\n✓ Ready for production deployment\n\nCo-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(ls -la \"C:\\\\Users\\\\eugen\\\\OneDrive\\\\Tech Projects\\\\family-tree-app\\\\.github\\\\workflows\"\" 2>/dev/null || echo \"No workflows found \")",
       "Bash(gh run view:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:donatso.github.io)",
+      "Bash(git tag:*)",
+      "Bash(wrangler d1 execute:*)",
+      "Bash(npm run worker:deploy:*)",
+      "Bash(npm run:*)",
+      "Bash(wrangler deploy:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(node -e:*)"
     ]
   }
 }

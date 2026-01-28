@@ -9,6 +9,10 @@ export default function AppHeader() {
   const isLoggedIn = isAuthenticated();
   const accessLevel = getAccessLevel();
 
+  console.log("[AppHeader] Rendering - isLoggedIn:", isLoggedIn, "accessLevel:", accessLevel);
+  console.log("[AppHeader] Can edit?", hasRequiredAccess(accessLevel, "edit"));
+  console.log("[AppHeader] Can admin?", hasRequiredAccess(accessLevel, "admin"));
+
   const handleLogout = () => {
     logout();
     // Navigate directly to login page and replace history to prevent back button issues

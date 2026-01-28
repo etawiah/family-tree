@@ -56,7 +56,9 @@ export function isAuthenticated() {
  * Return the stored access level for UI gating.
  */
 export function getAccessLevel() {
-  return localStorage.getItem(ACCESS_KEY);
+  const level = localStorage.getItem(ACCESS_KEY);
+  console.log("[auth.js] getAccessLevel() returning:", level, "from key:", ACCESS_KEY);
+  return level;
 }
 
 /**

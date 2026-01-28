@@ -17,6 +17,7 @@ export default function AddPersonPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (values) => {
+    console.log("[AddPersonPage] Form submitted with values:", values);
     setError("");
     setIsSaving(true);
     try {
