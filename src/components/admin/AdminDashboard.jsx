@@ -17,13 +17,6 @@ function PeopleList({
   // Handle both boolean and numeric (0/1) is_deleted values from SQLite
   const activePeople = (people || []).filter((p) => !p.is_deleted || p.is_deleted === 0);
   const softDeletedPeople = (people || []).filter((p) => p.is_deleted && p.is_deleted !== 0);
-  
-  console.log("[PeopleList] Rendering:", {
-    total: people.length,
-    active: activePeople.length,
-    deleted: softDeletedPeople.length,
-    selectedCount: selectedIds.size,
-  });
 
   const renderPerson = (person) => {
     const isSelected = selectedIds.has(person.id);
@@ -281,25 +274,9 @@ export default function AdminDashboard() {
         setUsers(userData.users || []);
         setStats(statsData);
         setActivity(activityData.activity || []);
-        const maternalPeople = maternalPeopleData.people || [];
-        const paternalPeople = paternalPeopleData.people || [];
-        
-        console.log("[Admin Dashboard] Loaded people:", {
-          maternal: {
-            total: maternalPeople.length,
-            active: maternalPeople.filter((p) => !p.is_deleted || p.is_deleted === 0).length,
-            deleted: maternalPeople.filter((p) => p.is_deleted && p.is_deleted !== 0).length,
-          },
-          paternal: {
-            total: paternalPeople.length,
-            active: paternalPeople.filter((p) => !p.is_deleted || p.is_deleted === 0).length,
-            deleted: paternalPeople.filter((p) => p.is_deleted && p.is_deleted !== 0).length,
-          },
-        });
-        
         setPeopleBySide({
-          maternal: maternalPeople,
-          paternal: paternalPeople,
+          maternal: maternalPeopleData.people || [],
+          paternal: paternalPeopleData.people || [],
         });
 
         // Fetch current user info to show role and attribution context.
@@ -692,16 +669,6 @@ export default function AdminDashboard() {
       <section className="admin-section">
         <h2>People Management</h2>
         <p>Use these lists to edit, delete, or restore any record.</p>
-        <div style={{
-          padding: "0.5rem",
-          backgroundColor: "#dbeafe",
-          border: "2px solid #3b82f6",
-          borderRadius: "4px",
-          marginBottom: "1rem",
-          fontSize: "0.875rem"
-        }}>
-          <strong>⚠️ DEBUG:</strong> Checkboxes and bulk actions should be visible below. If not, check browser console for errors.
-        </div>
         <div style={{ 
           marginBottom: "1rem", 
           padding: "0.75rem", 
@@ -845,20 +812,41 @@ export default function AdminDashboard() {
         <h2>Database Stats</h2>
         <div className="stats-grid">
           <div>
-            <strong>Maternal People</strong>
+            <strong>Maternal People (Active)</strong>
             <p>{stats?.people?.maternal || 0}</p>
+            {stats?.people?.maternalTotal !== undefined && stats?.people?.maternalTotal !== stats?.people?.maternal && (
+              <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                Total: {stats.people.maternalTotal} (includes soft-deleted)
+              </p>
+            )}
           </div>
           <div>
-            <strong>Paternal People</strong>
+            <strong>Paternal People (Active)</strong>
             <p>{stats?.people?.paternal || 0}</p>
+            {stats?.people?.paternalTotal !== undefined && stats?.people?.paternalTotal !== stats?.people?.paternal && (
+              <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                Total: {stats.people.paternalTotal} (includes soft-deleted)
+              </p>
+            )}
           </div>
           <div>
             <strong>Relationships</strong>
-            <p>{stats?.relationships || 0}</p>
+            <p>{stats?.relationshipsActive !== undefined ? stats.relationshipsActive : stats?.relationships || 0}</p>
+            {stats?.relationshipsActive !== undefined && stats.relationshipsActive !== stats.relationships && (
+              <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                Total: {stats.relationships} (includes deleted people)
+              </p>
+            )}
+            <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+              Note: Soft-deleted people keep relationships. Hard delete removes them.
+            </p>
           </div>
           <div>
-            <strong>Activity Entries</strong>
+            <strong>Activity Log Entries</strong>
             <p>{stats?.activityEntries || 0}</p>
+            <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.25rem" }}>
+              Audit trail of all actions (permanent record)
+            </p>
           </div>
         </div>
       </section>

@@ -1322,7 +1322,7 @@ async function updateUserPassword(db, request, user, username) {
  * Returns basic database statistics.
  */
 async function getAdminStats(db, user) {
-  const [peopleMaternal, peoplePaternal, relationships, activity] = await Promise.all([
+  const [peopleMaternal, peoplePaternal, peopleMaternalAll, peoplePaternalAll, relationships, relationshipsActive, activity] = await Promise.all([
     db
       .prepare(
         "SELECT COUNT(*) AS count FROM people WHERE tree_side = 'maternal' AND is_deleted = 0"
@@ -1333,7 +1333,20 @@ async function getAdminStats(db, user) {
         "SELECT COUNT(*) AS count FROM people WHERE tree_side = 'paternal' AND is_deleted = 0"
       )
       .first(),
+    db
+      .prepare("SELECT COUNT(*) AS count FROM people WHERE tree_side = 'maternal'")
+      .first(),
+    db
+      .prepare("SELECT COUNT(*) AS count FROM people WHERE tree_side = 'paternal'")
+      .first(),
     db.prepare("SELECT COUNT(*) AS count FROM relationships").first(),
+    // Count relationships where both people are active (not soft-deleted)
+    db.prepare(`
+      SELECT COUNT(*) AS count 
+      FROM relationships r
+      INNER JOIN people p1 ON r.person_id = p1.id AND p1.is_deleted = 0
+      INNER JOIN people p2 ON r.related_person_id = p2.id AND p2.is_deleted = 0
+    `).first(),
     db.prepare("SELECT COUNT(*) AS count FROM activity_log").first(),
   ]);
 
@@ -1343,8 +1356,11 @@ async function getAdminStats(db, user) {
     people: {
       maternal: peopleMaternal?.count || 0,
       paternal: peoplePaternal?.count || 0,
+      maternalTotal: peopleMaternalAll?.count || 0,
+      paternalTotal: peoplePaternalAll?.count || 0,
     },
     relationships: relationships?.count || 0,
+    relationshipsActive: relationshipsActive?.count || 0,
     activityEntries: activity?.count || 0,
   });
 }
