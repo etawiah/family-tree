@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import PersonForm from "./PersonForm.jsx";
+import RelationshipForm from "../relationships/RelationshipForm.jsx";
 import ErrorDisplay from "../common/ErrorDisplay.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
@@ -24,24 +25,87 @@ export default function EditPersonPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAddRelationship, setShowAddRelationship] = useState(false);
   const canDelete = hasRequiredAccess(getAccessLevel(), "admin");
+  const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
+
+  // Reload person data (used after relationship changes)
+  const loadPerson = async () => {
+    try {
+      const data = await apiRequest(`/api/people/${id}`);
+      setPerson(data.person);
+      setRelationships(data.relationships || []);
+      setLoadError("");
+    } catch (err) {
+      const message = err.message || "Person information could not be loaded. Please refresh the page.";
+      setLoadError(message);
+      showToast(message, "error");
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await apiRequest(`/api/people/${id}`);
-        setPerson(data.person);
-        setRelationships(data.relationships || []);
-        setLoadError("");
-      } catch (err) {
-        const message = err.message || "Person information could not be loaded. Please refresh the page.";
-        setLoadError(message);
-        showToast(message, "error");
-      }
-    };
-
-    load();
+    loadPerson();
   }, [id, showToast]);
+
+  // Helper function for ordinal suffixes (1st, 2nd, 3rd, 4th)
+  const getOrdinalSuffix = (num) => {
+    const j = num % 10;
+    const k = num % 100;
+    if (j === 1 && k !== 11) return "st";
+    if (j === 2 && k !== 12) return "nd";
+    if (j === 3 && k !== 13) return "rd";
+    return "th";
+  };
+
+  // Handle adding new relationship
+  const handleAddRelationship = async (relationshipData) => {
+    try {
+      await apiRequest("/api/relationships", {
+        method: "POST",
+        body: JSON.stringify(relationshipData),
+      });
+
+      showToast("Relationship added successfully", "success");
+      setShowAddRelationship(false);
+
+      // Refresh person data to show new relationship
+      await loadPerson();
+
+      // Invalidate tree queries to refresh tree view
+      await queryClient.invalidateQueries({ queryKey: ["family-chart-tree"] });
+      await queryClient.invalidateQueries({ queryKey: ["tree"] });
+    } catch (err) {
+      const message = err.message || "Unable to add relationship. Please try again.";
+      showToast(message, "error");
+    }
+  };
+
+  // Handle deleting relationship (admin only)
+  const handleDeleteRelationship = async (relationshipId, relatedPersonName) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to remove the relationship with ${relatedPersonName}? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await apiRequest(`/api/relationships/${relationshipId}`, {
+        method: "DELETE",
+      });
+
+      showToast("Relationship removed successfully", "success");
+
+      // Refresh person data
+      await loadPerson();
+
+      // Invalidate tree queries
+      await queryClient.invalidateQueries({ queryKey: ["family-chart-tree"] });
+      await queryClient.invalidateQueries({ queryKey: ["tree"] });
+    } catch (err) {
+      const message = err.message || "Unable to remove relationship. Please try again.";
+      showToast(message, "error");
+    }
+  };
 
   const handleSubmit = async (values) => {
     setSaveError("");
@@ -164,6 +228,87 @@ export default function EditPersonPage() {
         onCancel={handleCancel}
       />
       {isSaving ? <p>Saving...</p> : null}
+
+      {/* Relationship Management Section */}
+      <section className="relationships-section">
+        <h2>Relationships</h2>
+
+        {relationships.length > 0 ? (
+          <div className="relationships-list">
+            {relationships.map((rel) => {
+              const relatedPerson = rel.related_person_name || `Person #${rel.related_person_id}`;
+              const relType = rel.relationship_type;
+              const metadata = [];
+
+              if (rel.marriage_date) metadata.push(`Married: ${rel.marriage_date}`);
+              if (rel.divorce_date) metadata.push(`Divorced: ${rel.divorce_date}`);
+              if (rel.relationship_order > 1)
+                metadata.push(`${rel.relationship_order}${getOrdinalSuffix(rel.relationship_order)} marriage`);
+
+              return (
+                <div key={rel.id} className="relationship-card">
+                  <div className="relationship-info">
+                    <strong>{relatedPerson}</strong>
+                    <span className="relationship-type">({relType})</span>
+                    {metadata.length > 0 && (
+                      <div className="relationship-metadata">
+                        {metadata.join(" • ")}
+                      </div>
+                    )}
+                  </div>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => handleDeleteRelationship(rel.id, relatedPerson)}
+                      aria-label={`Remove ${relType} relationship with ${relatedPerson}`}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="empty-message">No relationships recorded yet.</p>
+        )}
+
+        {canEdit && (
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => setShowAddRelationship(true)}
+            style={{ marginTop: "1rem" }}
+          >
+            Add Relationship
+          </button>
+        )}
+
+        {showAddRelationship && (
+          <div className="modal-overlay" onClick={() => setShowAddRelationship(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <header className="modal-header">
+                <h2>Add Relationship</h2>
+                <button
+                  type="button"
+                  className="close-button"
+                  onClick={() => setShowAddRelationship(false)}
+                  aria-label="Close modal"
+                >
+                  ✕
+                </button>
+              </header>
+              <RelationshipForm
+                person={person}
+                onSubmit={handleAddRelationship}
+                onCancel={() => setShowAddRelationship(false)}
+              />
+            </div>
+          </div>
+        )}
+      </section>
+
       {canDelete ? (
         <div>
           <div className="button-row">
