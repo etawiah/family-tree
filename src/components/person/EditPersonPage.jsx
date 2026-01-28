@@ -119,6 +119,7 @@ export default function EditPersonPage() {
       // Invalidate related queries so tree updates with new data
       // This provides fast feedback without waiting for refetch
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["family-chart-tree"] }),
         queryClient.invalidateQueries({ queryKey: ["tree"] }),
         queryClient.invalidateQueries({ queryKey: ["people"] }),
         queryClient.invalidateQueries({ queryKey: ["person", id] }),
@@ -156,6 +157,7 @@ export default function EditPersonPage() {
 
       // Invalidate queries so tree reflects deletion
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["family-chart-tree"] }),
         queryClient.invalidateQueries({ queryKey: ["tree"] }),
         queryClient.invalidateQueries({ queryKey: ["people"] }),
       ]);

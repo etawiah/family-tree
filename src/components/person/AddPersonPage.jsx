@@ -25,9 +25,10 @@ export default function AddPersonPage() {
         body: JSON.stringify(values),
       });
 
-      // Invalidate tree and people queries so fresh data loads when navigating back
+      // Invalidate tree queries so fresh data loads when navigating back
       // This provides optimistic-like experience: user sees new person immediately
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["family-chart-tree"] }),
         queryClient.invalidateQueries({ queryKey: ["tree"] }),
         queryClient.invalidateQueries({ queryKey: ["people"] }),
       ]);
