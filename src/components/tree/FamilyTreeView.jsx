@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import * as f3 from "family-chart";
 import { useToast } from "../common/Toast.jsx";
@@ -16,11 +17,14 @@ export default function FamilyTreeView() {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [viewMode, setViewMode] = useState("descendant"); // "descendant" or "pedigree"
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [personDetailData, setPersonDetailData] = useState(null);
+  const [personDetailLoading, setPersonDetailLoading] = useState(false);
 
   // Fetch tree data in family-chart format
   const { data: treeResponse, isLoading, error, refetch } = useQuery({
@@ -100,7 +104,8 @@ export default function FamilyTreeView() {
       });
 
       // Handle card click - intercept click on cards
-      containerRef.current.addEventListener("click", (e) => {
+      // Must be a stable function reference for proper cleanup
+      const handleCardClick = (e) => {
         const cardElement = e.target.closest("g.card");
         if (cardElement) {
           const personId = cardElement.getAttribute("data-id");
@@ -115,7 +120,9 @@ export default function FamilyTreeView() {
             }
           }
         }
-      });
+      };
+
+      containerRef.current.addEventListener("click", handleCardClick);
 
       // Store chart reference for controls
       chartRef.current = { store, svg, chart, cards };
@@ -128,12 +135,14 @@ export default function FamilyTreeView() {
     }
 
     return () => {
-      // Cleanup
+      // Cleanup: Remove event listener AND clear DOM
       if (containerRef.current) {
+        // Note: We can't access handleCardClick in cleanup because it's in try block
+        // So we clear innerHTML which removes all listeners automatically
         containerRef.current.innerHTML = "";
       }
     };
-  }, [treeData, viewMode]);
+  }, [treeData, viewMode, showToast]);
 
   // Handle zoom controls
   const handleZoomIn = () => {
@@ -204,6 +213,38 @@ export default function FamilyTreeView() {
       "info"
     );
   };
+
+  // Fetch person detail data when selectedPerson changes
+  useEffect(() => {
+    if (selectedPerson?.id && showDetail) {
+      setPersonDetailLoading(true);
+      const token = localStorage.getItem("family_tree_token") || "";
+      fetch(`${baseUrl}/api/people/${selectedPerson.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch person: ${res.statusText}`);
+          }
+          return res.json();
+        })
+        .then((data) => {
+          setPersonDetailData(data);
+          setPersonDetailLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load person details:", err);
+          showToast("Failed to load person details", "error");
+          setPersonDetailLoading(false);
+          setShowDetail(false);
+        });
+    } else if (!showDetail) {
+      // Clear data when modal closes
+      setPersonDetailData(null);
+    }
+  }, [selectedPerson?.id, showDetail, baseUrl, showToast]);
 
   if (isLoading) {
     return (
@@ -297,10 +338,36 @@ export default function FamilyTreeView() {
         style={{ width: "100%", height: "calc(100vh - 320px)" }}
       />
 
-      {showDetail && selectedPerson && (
+      {showDetail && personDetailData && (
         <PersonDetail
-          personId={selectedPerson.id}
-          onClose={() => setShowDetail(false)}
+          person={personDetailData.person}
+          relationships={personDetailData.relationships || []}
+          isLoading={personDetailLoading}
+          onClose={() => {
+            setShowDetail(false);
+            setSelectedPerson(null);
+            setPersonDetailData(null);
+          }}
+          onEdit={() => {
+            navigate(`/people/${personDetailData.person.id}/edit`);
+            setShowDetail(false);
+          }}
+          onAddRelationship={() => {
+            navigate(`/people/${personDetailData.person.id}/edit`);
+            setShowDetail(false);
+          }}
+          onQuickAddChild={() => {
+            navigate(`/people/add?parent_id=${personDetailData.person.id}`);
+            setShowDetail(false);
+          }}
+          onQuickAddSpouse={() => {
+            navigate(`/people/add?spouse_id=${personDetailData.person.id}`);
+            setShowDetail(false);
+          }}
+          onQuickAddParent={() => {
+            navigate(`/people/add?child_id=${personDetailData.person.id}`);
+            setShowDetail(false);
+          }}
         />
       )}
     </section>

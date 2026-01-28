@@ -238,7 +238,10 @@ export default function EditPersonPage() {
         {relationships.length > 0 ? (
           <div className="relationships-list">
             {relationships.map((rel) => {
-              const relatedPerson = rel.related_person_name || `Person #${rel.related_person_id}`;
+              // Build related person name from first + last name (API returns related_first_name, related_last_name)
+              const relatedPerson = rel.related_person_name ||
+                `${rel.related_first_name || ""} ${rel.related_last_name || ""}`.trim() ||
+                `Person #${rel.related_person_id}`;
               const relType = rel.relationship_type;
               const metadata = [];
 
