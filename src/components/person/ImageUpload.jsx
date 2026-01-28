@@ -78,9 +78,13 @@ export default function ImageUpload({
           setStatus("Upload complete.");
           onUploadComplete?.(result.url);
           setPreview(result.url);
+          setProgress(100);
         })
         .catch((error) => {
-          setStatus(error.message || "Upload failed.");
+          console.error("Upload error:", error);
+          setStatus(error.message || "Upload failed. Please try again.");
+          setProgress(0);
+          // Don't clear preview - let user retry without reselecting file
         });
     },
     [imageType, personId, onUploadComplete]
@@ -252,14 +256,34 @@ function uploadFile(file, imageType, personId, onProgress) {
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        const response = JSON.parse(xhr.responseText);
-        resolve(response);
+        try {
+          const response = JSON.parse(xhr.responseText);
+
+          // Validate response has URL
+          if (response.url) {
+            resolve(response);
+          } else {
+            console.error("Upload response missing URL:", response);
+            reject(new Error("Upload succeeded but server didn't return a photo URL. Please contact support."));
+          }
+        } catch (parseError) {
+          console.error("Upload response parse error:", parseError, xhr.responseText);
+          reject(new Error("Upload succeeded but server response was invalid. Please try again."));
+        }
       } else {
-        reject(new Error("Upload failed. Please try again."));
+        try {
+          const error = JSON.parse(xhr.responseText);
+          reject(new Error(error.message || error.error || `Upload failed with status ${xhr.status}`));
+        } catch {
+          reject(new Error(`Upload failed with status ${xhr.status}. Please try again.`));
+        }
       }
     };
 
     xhr.onerror = () => reject(new Error("Network error during upload."));
+
+    xhr.onabort = () => reject(new Error("Upload was cancelled."));
+
     xhr.send(formData);
   });
 }
