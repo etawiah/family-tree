@@ -20,13 +20,18 @@ export default function LoginForm() {
     setIsSubmitting(true);
 
     try {
+      console.log("[LoginForm] Attempting login with username:", username);
       const result = await login(username, password);
+      console.log("[LoginForm] Login successful. Result:", result);
+      console.log("[LoginForm] Access level returned:", result.accessLevel);
 
       // Redirect based on the actual access level returned by the server.
       const destination =
         result.accessLevel === "admin" ? "/admin" : "/tree";
+      console.log("[LoginForm] Redirecting to:", destination);
       navigate(destination);
     } catch (err) {
+      console.error("[LoginForm] Login failed:", err.message);
       setError(err.message);
     } finally {
       setIsSubmitting(false);

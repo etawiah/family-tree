@@ -332,7 +332,8 @@ async function loginUser(db, request, env) {
     user.access_level,
     env.JWT_SECRET
   );
-  console.log("User logged in:", { username: user.username, accessLevel: user.access_level });
+  console.log("[api.js] User logged in:", { username: user.username, accessLevel: user.access_level });
+  console.log("[api.js] Login response will return:", { token: token.substring(0, 20) + "...", accessLevel: user.access_level });
   await logAction(db, user.username, "auth.login.success", {
     accessLevel: user.access_level,
   });
