@@ -194,6 +194,11 @@ export default {
         return getTreeHierarchy(db, url, user);
       }
 
+      if (path === "/api/tree/family-chart" && method === "GET") {
+        const user = await requireAuth("view")(request, env);
+        return getTreeDataForFamilyChart(db, user);
+      }
+
       return jsonResponse({ error: "Route not found." }, 404);
     } catch (error) {
       // Log errors for debugging without exposing sensitive data.
@@ -1210,6 +1215,121 @@ async function getTreeHierarchy(db, url, user) {
   await logAction(db, user.username, "tree.view", { treeSide: validation.value });
 
   return jsonResponse({ tree: roots });
+}
+
+/**
+ * GET /api/tree/family-chart
+ * Returns tree data in family-chart library format
+ *
+ * Format:
+ * [
+ *   {
+ *     id: "1",
+ *     data: {first_name, last_name, gender, birthday, ...},
+ *     rels: {spouses: ["2"], children: ["3","4"], parents: ["5"]}
+ *   },
+ *   ...
+ * ]
+ */
+async function getTreeDataForFamilyChart(db, user) {
+  try {
+    // Fetch all people (no tree_side filtering)
+    const peopleStmt = db.prepare(`
+      SELECT
+        id, first_name, middle_name, last_name, gender,
+        birth_date, death_date, is_alive,
+        current_location, profession, personal_notes,
+        headshot_url, additional_photo_url,
+        tree_side, created_at
+      FROM people
+      WHERE is_deleted = 0
+      ORDER BY created_at ASC
+    `);
+    const peopleResult = await peopleStmt.all();
+    const people = peopleResult.results || [];
+
+    // Fetch all relationships (no tree_side filtering)
+    const relationshipsStmt = db.prepare(`
+      SELECT
+        id, person_id, related_person_id, relationship_type,
+        is_blood_relation, marriage_date, divorce_date, relationship_order
+      FROM relationships
+      ORDER BY person_id, relationship_type
+    `);
+    const relationshipsResult = await relationshipsStmt.all();
+    const relationships = relationshipsResult.results || [];
+
+    // Build relationship index
+    const relIndex = {};
+    for (const rel of relationships) {
+      if (!relIndex[rel.person_id]) {
+        relIndex[rel.person_id] = { spouses: [], children: [], parents: [] };
+      }
+
+      // Map relationship types to family-chart categories
+      if (rel.relationship_type === 'spouse' || rel.relationship_type === 'ex-spouse') {
+        relIndex[rel.person_id].spouses.push({
+          id: String(rel.related_person_id),
+          marriage_date: rel.marriage_date,
+          divorce_date: rel.divorce_date,
+          order: rel.relationship_order,
+        });
+      } else if (rel.relationship_type === 'child') {
+        relIndex[rel.person_id].children.push(String(rel.related_person_id));
+      } else if (rel.relationship_type === 'parent') {
+        relIndex[rel.person_id].parents.push(String(rel.related_person_id));
+      }
+    }
+
+    // Transform to family-chart format
+    const treeData = people.map((person) => {
+      const rels = relIndex[person.id] || { spouses: [], children: [], parents: [] };
+
+      return {
+        id: String(person.id),
+        data: {
+          'first name': person.first_name || '',
+          'middle name': person.middle_name || '',
+          'last name': person.last_name || '',
+          'gender': person.gender || 'other',
+          'birthday': person.birth_date || '',
+          'deathday': person.death_date || '',
+          'is_alive': person.is_alive ? 1 : 0,
+          'location': person.current_location || '',
+          'profession': person.profession || '',
+          'notes': person.personal_notes || '',
+          'photo': person.headshot_url || '',
+          'additional_photo': person.additional_photo_url || '',
+          'tree_side': person.tree_side || 'both',
+          'created_at': person.created_at || '',
+        },
+        rels: {
+          spouses: rels.spouses.map((s) => s.id),
+          children: rels.children,
+          father: rels.parents.find((p) => {
+            const parent = people.find((per) => per.id === parseInt(p));
+            return parent && parent.gender === 'male';
+          }),
+          mother: rels.parents.find((p) => {
+            const parent = people.find((per) => per.id === parseInt(p));
+            return parent && parent.gender === 'female';
+          }),
+        },
+      };
+    });
+
+    console.log('Built family-chart tree data:', {
+      people: treeData.length,
+    });
+    await logAction(db, user.username, 'tree.family-chart', {
+      people: treeData.length,
+    });
+
+    return jsonResponse({ tree: treeData });
+  } catch (error) {
+    console.error('Error fetching family-chart tree:', error);
+    return jsonResponse({ error: 'Failed to fetch tree data' }, 500);
+  }
 }
 
 /**
