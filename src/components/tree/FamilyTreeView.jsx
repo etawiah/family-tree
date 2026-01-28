@@ -50,6 +50,36 @@ export default function FamilyTreeView() {
 
   const treeData = treeResponse?.tree || [];
 
+  // Helper function to apply zoom transform to SVG
+  // Defined before useEffect to avoid dependency issues
+  // Using useRef to avoid circular dependency issues
+  const applyZoomTransformRef = useRef(null);
+  applyZoomTransformRef.current = (level, transformOverride = null) => {
+    if (chartRef.current?.svg) {
+      try {
+        // Find the main group element that contains the tree
+        const svgElement = chartRef.current.svg;
+        const mainGroup = svgElement.querySelector('g') || svgElement.firstElementChild;
+        if (mainGroup) {
+          const currentTransform = mainGroup.getAttribute('transform') || '';
+          // Extract existing translate values if any, or use provided transform
+          const translateMatch = currentTransform.match(/translate\(([^)]+)\)/);
+          const t = transformOverride || zoomTransform;
+          const translate = translateMatch ? translateMatch[1].split(',').map(Number) : [t.x, t.y];
+          mainGroup.setAttribute('transform', `translate(${translate[0]},${translate[1]}) scale(${level})`);
+        }
+      } catch (err) {
+        console.warn("Error applying zoom transform:", err);
+      }
+    }
+  };
+  
+  const applyZoomTransform = useCallback((level, transformOverride = null) => {
+    if (applyZoomTransformRef.current) {
+      applyZoomTransformRef.current(level, transformOverride);
+    }
+  }, [zoomTransform]);
+
   // Initialize family-chart
   useEffect(() => {
     if (!containerRef.current || treeData.length === 0) return;
@@ -76,17 +106,32 @@ export default function FamilyTreeView() {
         svg,
       });
 
-      // Configure view mode
-      if (viewMode === "descendant") {
-        chart.setAncestryDepth(0);  // Hide ancestors
-        chart.setProgenyDepth(10);   // Show descendants
-      } else if (viewMode === "pedigree") {
-        chart.setAncestryDepth(10);  // Show ancestors
-        chart.setProgenyDepth(0);    // Hide descendants
-      }
+      // Configure view mode - wrap in try-catch in case methods don't exist
+      try {
+        if (viewMode === "descendant") {
+          if (chart && typeof chart.setAncestryDepth === 'function') {
+            chart.setAncestryDepth(0);  // Hide ancestors
+          }
+          if (chart && typeof chart.setProgenyDepth === 'function') {
+            chart.setProgenyDepth(10);   // Show descendants
+          }
+        } else if (viewMode === "pedigree") {
+          if (chart && typeof chart.setAncestryDepth === 'function') {
+            chart.setAncestryDepth(10);  // Show ancestors
+          }
+          if (chart && typeof chart.setProgenyDepth === 'function') {
+            chart.setProgenyDepth(0);    // Hide descendants
+          }
+        }
 
-      // Enable branch toggles for expand/collapse
-      chart.setDuplicateBranchToggle(true);
+        // Enable branch toggles for expand/collapse
+        if (chart && typeof chart.setDuplicateBranchToggle === 'function') {
+          chart.setDuplicateBranchToggle(true);
+        }
+      } catch (configError) {
+        console.warn("Error configuring chart view mode:", configError);
+        // Continue without view mode configuration - chart will use defaults
+      }
 
       // Add cards
       const cards = f3.elements.Card({
@@ -150,7 +195,13 @@ export default function FamilyTreeView() {
       
       // Apply initial zoom transform after a brief delay to ensure SVG is rendered
       setTimeout(() => {
-        applyZoomTransform(1);
+        try {
+          if (applyZoomTransformRef.current) {
+            applyZoomTransformRef.current(1);
+          }
+        } catch (err) {
+          console.warn("Failed to apply initial zoom transform:", err);
+        }
       }, 100);
     } catch (err) {
       console.error("Error initializing family-chart:", err);
