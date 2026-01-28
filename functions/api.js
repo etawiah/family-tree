@@ -70,6 +70,7 @@ export default {
     try {
       // Route matching for endpoints with path parameters.
       const peopleIdMatch = path.match(/^\/api\/people\/(\d+)$/);
+      const peopleRestoreMatch = path.match(/^\/api\/people\/(\d+)\/restore$/);
       const relationshipsIdMatch = path.match(/^\/api\/relationships\/(\d+)$/);
       const snapshotRestoreMatch = path.match(/^\/api\/snapshots\/(\d+)\/restore$/);
       const adminPasswordMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/password$/);
@@ -123,6 +124,16 @@ export default {
         return getActivityLog(db, user);
       }
 
+      if (path === "/api/admin/people" && method === "GET") {
+        const user = await requireAuth("admin")(request, env);
+        return getAdminPeopleByTreeSide(db, url, user);
+      }
+
+      if (path === "/api/admin/people/bulk-delete" && method === "POST") {
+        const user = await requireAuth("admin")(request, env);
+        return bulkDeletePeople(db, request, user);
+      }
+
       if (path === "/api/people" && method === "GET") {
         // Requires VIEW access (auth middleware placeholder).
         const user = await requireAuth("view")(request, env);
@@ -144,6 +155,12 @@ export default {
         const user = await requireAuth("edit")(request, env);
         const personId = Number(peopleIdMatch[1]);
         return updatePerson(db, request, personId, user);
+      }
+
+      if (peopleRestoreMatch && method === "POST") {
+        const user = await requireAuth("admin")(request, env);
+        const personId = Number(peopleRestoreMatch[1]);
+        return restorePerson(db, personId, user);
       }
 
       if (peopleIdMatch && method === "DELETE") {
@@ -520,6 +537,36 @@ async function getPeopleByTreeSide(db, url, user) {
 }
 
 /**
+ * GET /api/admin/people?tree_side=maternal|paternal
+ * Admin-only endpoint that returns ALL people including soft-deleted.
+ */
+async function getAdminPeopleByTreeSide(db, url, user) {
+  const validation = validateTreeSide(url);
+  if (!validation.ok) {
+    return jsonResponse({ error: validation.error }, 400);
+  }
+
+  // Query returns ALL people (no is_deleted filter) for admin management
+  const stmt = db.prepare(
+    `
+    SELECT *
+    FROM people
+    WHERE tree_side = ?
+    ORDER BY is_deleted ASC, last_name, first_name
+  `
+  );
+  const result = await stmt.bind(validation.value).all();
+  console.log("Fetched admin people list (including soft-deleted):", {
+    treeSide: validation.value,
+    count: result.results.length,
+  });
+  await logAction(db, user.username, "admin.people.list", {
+    treeSide: validation.value,
+  });
+  return jsonResponse({ people: result.results });
+}
+
+/**
  * GET /api/people/:id
  * Returns a single person with their relationships.
  */
@@ -809,6 +856,129 @@ async function hardDeletePerson(db, personId, user) {
   console.log("Hard deleted person:", { personId });
   await logAction(db, user.username, "people.hard_delete", { personId });
   return jsonResponse({ id: personId, hardDeleted: true });
+}
+
+/**
+ * POST /api/people/:id/restore
+ * Restores a soft-deleted person (sets is_deleted = 0).
+ * Admin only.
+ */
+async function restorePerson(db, personId, user) {
+  if (!Number.isInteger(personId)) {
+    return jsonResponse({ error: "Invalid person id." }, 400);
+  }
+
+  const stmt = db.prepare(
+    `
+    UPDATE people
+    SET is_deleted = 0, updated_at = ?
+    WHERE id = ?
+  `
+  );
+  const result = await stmt.bind(new Date().toISOString(), personId).run();
+  if (result.changes === 0) {
+    return jsonResponse({ error: "Person not found or already active." }, 404);
+  }
+
+  // Fetch the restored person to return full object
+  const restored = await db
+    .prepare("SELECT * FROM people WHERE id = ?")
+    .bind(personId)
+    .first();
+
+  console.log("Restored person:", { personId });
+  await logAction(db, user.username, "people.restore", { personId });
+  return jsonResponse({ person: restored });
+}
+
+/**
+ * POST /api/admin/people/bulk-delete
+ * Bulk delete multiple people (soft or hard delete).
+ * Admin only.
+ */
+async function bulkDeletePeople(db, request, user) {
+  const body = await parseJson(request);
+  const { person_ids, hard = false } = body;
+
+  if (!Array.isArray(person_ids) || person_ids.length === 0) {
+    return jsonResponse(
+      { error: "person_ids must be a non-empty array." },
+      400
+    );
+  }
+
+  // Validate all IDs are integers
+  const validIds = person_ids.filter((id) => Number.isInteger(Number(id)));
+  if (validIds.length !== person_ids.length) {
+    return jsonResponse({ error: "All person_ids must be valid integers." }, 400);
+  }
+
+  const deleted = [];
+  const failed = [];
+
+  if (hard) {
+    // Hard delete: Remove from database permanently
+    for (const personId of validIds) {
+      try {
+        // Delete relationships first
+        const deleteRelationships = db.prepare(
+          `DELETE FROM relationships WHERE person_id = ? OR related_person_id = ?`
+        );
+        await deleteRelationships.bind(personId, personId).run();
+
+        // Delete the person
+        const stmt = db.prepare(`DELETE FROM people WHERE id = ?`);
+        const result = await stmt.bind(personId).run();
+        if (result.changes > 0) {
+          deleted.push(personId);
+          await logAction(db, user.username, "people.hard_delete", { personId });
+        } else {
+          failed.push({ personId, error: "Person not found." });
+        }
+      } catch (err) {
+        failed.push({ personId, error: err.message || "Delete failed." });
+      }
+    }
+  } else {
+    // Soft delete: Set is_deleted = 1
+    const timestamp = new Date().toISOString();
+    for (const personId of validIds) {
+      try {
+        const stmt = db.prepare(
+          `
+          UPDATE people
+          SET is_deleted = 1, updated_at = ?
+          WHERE id = ? AND is_deleted = 0
+        `
+        );
+        const result = await stmt.bind(timestamp, personId).run();
+        if (result.changes > 0) {
+          deleted.push(personId);
+          await logAction(db, user.username, "people.delete", { personId });
+        } else {
+          failed.push({ personId, error: "Person not found or already deleted." });
+        }
+      } catch (err) {
+        failed.push({ personId, error: err.message || "Delete failed." });
+      }
+    }
+  }
+
+  console.log("Bulk delete completed:", {
+    hard,
+    deleted: deleted.length,
+    failed: failed.length,
+  });
+
+  return jsonResponse({
+    deleted,
+    failed,
+    summary: {
+      total: validIds.length,
+      deleted: deleted.length,
+      failed: failed.length,
+    },
+  });
 }
 
 /**

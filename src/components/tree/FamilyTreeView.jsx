@@ -116,6 +116,30 @@ export default function FamilyTreeView() {
     if (peopleDataResponse) {
       const people = peopleDataResponse.people || [];
       console.log(`[Tree Debug] API returned ${people.length} people for ${treeSide} tree`);
+      
+      // Check for soft-deleted people (shouldn't happen, but log if they do)
+      const deletedPeople = people.filter((p) => p.is_deleted);
+      if (deletedPeople.length > 0) {
+        console.warn(
+          `[Tree Debug] WARNING: ${deletedPeople.length} soft-deleted people in API response:`,
+          deletedPeople.map((p) => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }))
+        );
+      }
+      
+      // Check for people with wrong tree_side
+      const wrongSide = people.filter((p) => p.tree_side !== treeSide);
+      if (wrongSide.length > 0) {
+        console.warn(
+          `[Tree Debug] WARNING: ${wrongSide.length} people with wrong tree_side:`,
+          wrongSide.map((p) => ({
+            id: p.id,
+            name: `${p.first_name} ${p.last_name}`,
+            expected: treeSide,
+            actual: p.tree_side,
+          }))
+        );
+      }
+      
       if (people.length === 0) {
         console.warn(`[Tree Debug] No people returned from API for ${treeSide} side`);
       } else {
@@ -124,6 +148,7 @@ export default function FamilyTreeView() {
             id: person.id,
             name: `${person.first_name} ${person.last_name}`,
             tree_side: person.tree_side,
+            is_deleted: person.is_deleted || false,
             has_relationships: person.children?.length > 0 || false,
           });
         });
@@ -148,7 +173,36 @@ export default function FamilyTreeView() {
     collectNodeIds(roots).forEach((id) => linkedIds.add(id));
     const unlinkedPeople = people.filter((person) => !linkedIds.has(person.id));
 
-    console.log(`[Tree Debug] Linked people: ${linkedIds.size}, Unlinked people: ${unlinkedPeople.length}`);
+    console.log(`[Tree Debug] Tree structure:`, {
+      roots: roots.length,
+      linkedPeople: linkedIds.size,
+      unlinkedPeople: unlinkedPeople.length,
+      totalPeople: people.length,
+    });
+    
+    if (unlinkedPeople.length > 0) {
+      console.log(`[Tree Debug] Unlinked people (will show in "Unlinked" group):`, 
+        unlinkedPeople.map((p) => ({
+          id: p.id,
+          name: `${p.first_name} ${p.last_name}`,
+          tree_side: p.tree_side,
+        }))
+      );
+    }
+    
+    // Verify all people are accounted for
+    const allAccountedIds = new Set([...linkedIds, ...unlinkedPeople.map((p) => p.id)]);
+    const missingPeople = people.filter((p) => !allAccountedIds.has(p.id));
+    if (missingPeople.length > 0) {
+      console.error(`[Tree Debug] ERROR: ${missingPeople.length} people not in tree structure:`, 
+        missingPeople.map((p) => ({
+          id: p.id,
+          name: `${p.first_name} ${p.last_name}`,
+          tree_side: p.tree_side,
+          is_deleted: p.is_deleted,
+        }))
+      );
+    }
 
     const nodes = [...mappedRoots];
     if (unlinkedPeople.length) {

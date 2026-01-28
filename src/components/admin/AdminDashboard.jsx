@@ -2,6 +2,187 @@ import { useEffect, useMemo, useState } from "react";
 import { getToken } from "../../services/auth.js";
 
 /**
+ * PeopleList component - displays active and soft-deleted people with checkboxes
+ */
+function PeopleList({
+  people = [],
+  selectedIds = new Set(),
+  onSelectPerson,
+  onSelectAll,
+  onDelete,
+  onHardDelete,
+  onRestore,
+  isBulkDeleting = false,
+}) {
+  // Handle both boolean and numeric (0/1) is_deleted values from SQLite
+  const activePeople = (people || []).filter((p) => !p.is_deleted || p.is_deleted === 0);
+  const softDeletedPeople = (people || []).filter((p) => p.is_deleted && p.is_deleted !== 0);
+  
+  console.log("[PeopleList] Rendering:", {
+    total: people.length,
+    active: activePeople.length,
+    deleted: softDeletedPeople.length,
+    selectedCount: selectedIds.size,
+  });
+
+  const renderPerson = (person) => {
+    const isSelected = selectedIds.has(person.id);
+    // Handle both boolean and numeric (0/1) is_deleted values from SQLite
+    const isDeleted = person.is_deleted && person.is_deleted !== 0;
+
+    return (
+      <li
+        key={person.id}
+        style={{
+          opacity: isDeleted ? 0.6 : 1,
+          backgroundColor: isDeleted ? "#f1f5f9" : "transparent",
+          padding: "0.5rem",
+          marginBottom: "0.5rem",
+          borderRadius: "4px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onSelectPerson(person.id)}
+            disabled={isBulkDeleting}
+            style={{ 
+              cursor: isBulkDeleting ? "not-allowed" : "pointer",
+              width: "18px",
+              height: "18px",
+              flexShrink: 0
+            }}
+          />
+          <div style={{ flex: 1 }}>
+            <strong>
+              {person.first_name} {person.last_name}
+              {isDeleted && (
+                <span
+                  style={{
+                    marginLeft: "0.5rem",
+                    padding: "0.125rem 0.5rem",
+                    backgroundColor: "#ef4444",
+                    color: "#ffffff",
+                    borderRadius: "4px",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  DELETED
+                </span>
+              )}
+            </strong>
+            <p style={{ margin: "0.25rem 0", fontSize: "0.875rem", color: "#64748b" }}>
+              #{person.id}
+            </p>
+          </div>
+        </div>
+        <div className="button-row" style={{ marginTop: "0.5rem" }}>
+          {!isDeleted && (
+            <>
+              <a className="button-link" href={`/people/${person.id}/edit`}>
+                Edit
+              </a>
+              <button
+                type="button"
+                onClick={() => onDelete(person)}
+                disabled={isBulkDeleting}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => onHardDelete(person)}
+                disabled={isBulkDeleting}
+                style={{ backgroundColor: "#dc2626", color: "#ffffff" }}
+              >
+                Hard Delete
+              </button>
+            </>
+          )}
+          {isDeleted && (
+            <>
+              <button
+                type="button"
+                onClick={() => onRestore(person)}
+                disabled={isBulkDeleting}
+                style={{ backgroundColor: "#16a34a", color: "#ffffff" }}
+              >
+                Restore
+              </button>
+              <button
+                type="button"
+                onClick={() => onHardDelete(person)}
+                disabled={isBulkDeleting}
+                style={{ backgroundColor: "#dc2626", color: "#ffffff" }}
+              >
+                Hard Delete
+              </button>
+            </>
+          )}
+        </div>
+      </li>
+    );
+  };
+
+  if (!people || people.length === 0) {
+    return <div style={{ padding: "1rem", color: "#64748b" }}>No people found</div>;
+  }
+
+  return (
+    <>
+      <div style={{ marginBottom: "1rem", padding: "0.5rem", backgroundColor: "#f8fafc", borderRadius: "4px" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={activePeople.length > 0 && activePeople.every((p) => selectedIds.has(p.id))}
+            onChange={() => onSelectAll(activePeople)}
+            disabled={isBulkDeleting}
+            style={{ cursor: isBulkDeleting ? "not-allowed" : "pointer", width: "18px", height: "18px", flexShrink: 0 }}
+          />
+          <strong>Select All Active ({activePeople.length})</strong>
+        </label>
+      </div>
+      <ul className="people-list" style={{ listStyle: "none", padding: 0 }}>
+        {activePeople.length > 0 ? (
+          activePeople.map(renderPerson)
+        ) : (
+          <li style={{ padding: "1rem", color: "#64748b" }}>No active people</li>
+        )}
+      </ul>
+
+      {softDeletedPeople.length > 0 && (
+        <>
+          <h4 style={{ marginTop: "2rem", marginBottom: "0.5rem", color: "#ef4444" }}>
+            Soft-Deleted People
+          </h4>
+          <div style={{ marginBottom: "1rem" }}>
+            <label
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}
+            >
+              <input
+                type="checkbox"
+                checked={
+                  softDeletedPeople.length > 0 &&
+                  softDeletedPeople.every((p) => selectedIds.has(p.id))
+                }
+                onChange={() => onSelectAll(softDeletedPeople)}
+                disabled={isBulkDeleting}
+                style={{ cursor: isBulkDeleting ? "not-allowed" : "pointer", width: "18px", height: "18px", flexShrink: 0 }}
+              />
+              <strong>Select All Deleted ({softDeletedPeople.length})</strong>
+            </label>
+          </div>
+          <ul className="people-list" style={{ listStyle: "none", padding: 0 }}>
+            {softDeletedPeople.map(renderPerson)}
+          </ul>
+        </>
+      )}
+    </>
+  );
+}
+
+/**
  * Admin dashboard for snapshots, users, and database stats.
  *
  * Each action includes a confirmation step to reduce accidental changes.
@@ -22,6 +203,8 @@ export default function AdminDashboard() {
   const [manualDescription, setManualDescription] = useState("");
   const [confirmAction, setConfirmAction] = useState(null);
   const [photoCleanupError, setPhotoCleanupError] = useState("");
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const baseUrl = import.meta.env.VITE_API_URL;
   const authHeader = useMemo(() => {
@@ -72,8 +255,8 @@ export default function AdminDashboard() {
           fetch(`${baseUrl}/api/admin/users`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/stats`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/activity`, { headers: authHeader }),
-          fetch(`${baseUrl}/api/people?tree_side=maternal`, { headers: authHeader }),
-          fetch(`${baseUrl}/api/people?tree_side=paternal`, { headers: authHeader }),
+          fetch(`${baseUrl}/api/admin/people?tree_side=maternal`, { headers: authHeader }),
+          fetch(`${baseUrl}/api/admin/people?tree_side=paternal`, { headers: authHeader }),
         ]);
 
         if (
@@ -98,9 +281,25 @@ export default function AdminDashboard() {
         setUsers(userData.users || []);
         setStats(statsData);
         setActivity(activityData.activity || []);
+        const maternalPeople = maternalPeopleData.people || [];
+        const paternalPeople = paternalPeopleData.people || [];
+        
+        console.log("[Admin Dashboard] Loaded people:", {
+          maternal: {
+            total: maternalPeople.length,
+            active: maternalPeople.filter((p) => !p.is_deleted || p.is_deleted === 0).length,
+            deleted: maternalPeople.filter((p) => p.is_deleted && p.is_deleted !== 0).length,
+          },
+          paternal: {
+            total: paternalPeople.length,
+            active: paternalPeople.filter((p) => !p.is_deleted || p.is_deleted === 0).length,
+            deleted: paternalPeople.filter((p) => p.is_deleted && p.is_deleted !== 0).length,
+          },
+        });
+        
         setPeopleBySide({
-          maternal: maternalPeopleData.people || [],
-          paternal: paternalPeopleData.people || [],
+          maternal: maternalPeople,
+          paternal: paternalPeople,
         });
 
         // Fetch current user info to show role and attribution context.
@@ -214,6 +413,149 @@ export default function AdminDashboard() {
     });
   };
 
+  const handleRestorePerson = (person) => {
+    setConfirmAction({
+      title: "Restore person",
+      message: `Restore ${person.first_name} ${person.last_name}? This will make them visible in the tree again.`,
+      onConfirm: async () => {
+        const response = await fetch(`${baseUrl}/api/people/${person.id}/restore`, {
+          method: "POST",
+          headers: authHeader,
+        });
+        if (!response.ok) {
+          const payload = await response.json();
+          alert(payload?.error || "Failed to restore person.");
+          return;
+        }
+        await reloadPeople();
+      },
+    });
+  };
+
+  const handleSelectPerson = (personId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(personId)) {
+        next.delete(personId);
+      } else {
+        next.add(personId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = (people) => {
+    const allSelected = people.every((p) => selectedIds.has(p.id));
+    if (allSelected) {
+      // Deselect all
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        people.forEach((p) => next.delete(p.id));
+        return next;
+      });
+    } else {
+      // Select all
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        people.forEach((p) => next.add(p.id));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDelete = (hard = false) => {
+    if (selectedIds.size === 0) {
+      alert("Please select at least one person.");
+      return;
+    }
+
+    const personArray = Array.from(selectedIds);
+    const action = hard ? "PERMANENTLY delete" : "delete";
+    const warning = hard
+      ? " This will remove them and all their relationships from the database forever. This cannot be undone!"
+      : " This will hide them from the tree but keep the record in the database (soft delete).";
+
+    setConfirmAction({
+      title: hard ? "Bulk Hard Delete" : "Bulk Soft Delete",
+      message: `${action} ${personArray.length} person(s)?${warning}`,
+      onConfirm: async () => {
+        setIsBulkDeleting(true);
+        try {
+          const response = await fetch(`${baseUrl}/api/admin/people/bulk-delete`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeader,
+            },
+            body: JSON.stringify({
+              person_ids: personArray,
+              hard,
+            }),
+          });
+
+          const payload = await response.json();
+          if (!response.ok) {
+            alert(payload?.error || "Bulk delete failed.");
+            return;
+          }
+
+          const { deleted, failed, summary } = payload;
+          if (failed.length > 0) {
+            alert(
+              `Deleted ${summary.deleted} person(s). Failed to delete ${summary.failed} person(s).`
+            );
+          } else {
+            alert(`Successfully deleted ${summary.deleted} person(s).`);
+          }
+          await reloadPeople();
+        } catch (err) {
+          alert("Bulk delete failed: " + err.message);
+        } finally {
+          setIsBulkDeleting(false);
+        }
+      },
+    });
+  };
+
+  const handleBulkRestore = () => {
+    if (selectedIds.size === 0) {
+      alert("Please select at least one soft-deleted person.");
+      return;
+    }
+
+    const personArray = Array.from(selectedIds);
+    setConfirmAction({
+      title: "Bulk Restore",
+      message: `Restore ${personArray.length} person(s)? This will make them visible in the tree again.`,
+      onConfirm: async () => {
+        setIsBulkDeleting(true);
+        try {
+          const restorePromises = personArray.map((personId) =>
+            fetch(`${baseUrl}/api/people/${personId}/restore`, {
+              method: "POST",
+              headers: authHeader,
+            })
+          );
+
+          const results = await Promise.allSettled(restorePromises);
+          const successful = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
+          const failed = results.length - successful;
+
+          if (failed > 0) {
+            alert(`Restored ${successful} person(s). Failed to restore ${failed} person(s).`);
+          } else {
+            alert(`Successfully restored ${successful} person(s).`);
+          }
+          await reloadPeople();
+        } catch (err) {
+          alert("Bulk restore failed: " + err.message);
+        } finally {
+          setIsBulkDeleting(false);
+        }
+      },
+    });
+  };
+
   const handleDeletePhoto = (photoUrl) => {
     if (!photoUrl) {
       return;
@@ -251,8 +593,8 @@ export default function AdminDashboard() {
 
   const reloadPeople = async () => {
     const [maternalPeopleRes, paternalPeopleRes] = await Promise.all([
-      fetch(`${baseUrl}/api/people?tree_side=maternal`, { headers: authHeader }),
-      fetch(`${baseUrl}/api/people?tree_side=paternal`, { headers: authHeader }),
+      fetch(`${baseUrl}/api/admin/people?tree_side=maternal`, { headers: authHeader }),
+      fetch(`${baseUrl}/api/admin/people?tree_side=paternal`, { headers: authHeader }),
     ]);
 
     if (!maternalPeopleRes.ok || !paternalPeopleRes.ok) {
@@ -265,6 +607,8 @@ export default function AdminDashboard() {
       maternal: maternalPeopleData.people || [],
       paternal: paternalPeopleData.people || [],
     });
+    // Clear selections when data reloads
+    setSelectedIds(new Set());
   };
 
   if (isLoading) {
@@ -347,53 +691,113 @@ export default function AdminDashboard() {
 
       <section className="admin-section">
         <h2>People Management</h2>
-        <p>Use these lists to edit or delete any record.</p>
+        <p>Use these lists to edit, delete, or restore any record.</p>
+        <div style={{
+          padding: "0.5rem",
+          backgroundColor: "#dbeafe",
+          border: "2px solid #3b82f6",
+          borderRadius: "4px",
+          marginBottom: "1rem",
+          fontSize: "0.875rem"
+        }}>
+          <strong>⚠️ DEBUG:</strong> Checkboxes and bulk actions should be visible below. If not, check browser console for errors.
+        </div>
+        <div style={{ 
+          marginBottom: "1rem", 
+          padding: "0.75rem", 
+          backgroundColor: "#f8fafc", 
+          borderRadius: "8px",
+          border: "1px solid #e2e8f0"
+        }}>
+          <strong>Summary:</strong>{" "}
+          Maternal: {peopleBySide.maternal.filter((p) => !p.is_deleted || p.is_deleted === 0).length} active,{" "}
+          {peopleBySide.maternal.filter((p) => p.is_deleted && p.is_deleted !== 0).length} deleted |{" "}
+          Paternal: {peopleBySide.paternal.filter((p) => !p.is_deleted || p.is_deleted === 0).length} active,{" "}
+          {peopleBySide.paternal.filter((p) => p.is_deleted && p.is_deleted !== 0).length} deleted
+        </div>
         <div className="people-columns">
           <div>
             <h3>Maternal</h3>
-            <ul className="people-list">
-              {peopleBySide.maternal.map((person) => (
-                <li key={person.id}>
-                  <div>
-                    <strong>
-                      {person.first_name} {person.last_name}
-                    </strong>
-                    <p>#{person.id}</p>
-                  </div>
-                  <div className="button-row">
-                    <a className="button-link" href={`/people/${person.id}/edit`}>
-                      Edit
-                    </a>
-                    <button type="button" onClick={() => handleDeletePerson(person)}>
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <PeopleList
+              people={peopleBySide.maternal}
+              selectedIds={selectedIds}
+              onSelectPerson={handleSelectPerson}
+              onSelectAll={handleSelectAll}
+              onDelete={handleDeletePerson}
+              onHardDelete={handleHardDeletePerson}
+              onRestore={handleRestorePerson}
+              isBulkDeleting={isBulkDeleting}
+            />
           </div>
           <div>
             <h3>Paternal</h3>
-            <ul className="people-list">
-              {peopleBySide.paternal.map((person) => (
-                <li key={person.id}>
-                  <div>
-                    <strong>
-                      {person.first_name} {person.last_name}
-                    </strong>
-                    <p>#{person.id}</p>
-                  </div>
-                  <div className="button-row">
-                    <a className="button-link" href={`/people/${person.id}/edit`}>
-                      Edit
-                    </a>
-                    <button type="button" onClick={() => handleDeletePerson(person)}>
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <PeopleList
+              people={peopleBySide.paternal}
+              selectedIds={selectedIds}
+              onSelectPerson={handleSelectPerson}
+              onSelectAll={handleSelectAll}
+              onDelete={handleDeletePerson}
+              onHardDelete={handleHardDeletePerson}
+              onRestore={handleRestorePerson}
+              isBulkDeleting={isBulkDeleting}
+            />
+          </div>
+        </div>
+        <div 
+          className="bulk-actions" 
+          style={{ 
+            marginTop: "1rem", 
+            padding: "1rem", 
+            border: "1px solid #cbd5f5", 
+            borderRadius: "8px",
+            backgroundColor: "#ffffff",
+            display: "block"
+          }}
+        >
+          <p style={{ margin: "0 0 0.5rem 0" }}>
+            <strong>Bulk Actions:</strong> {selectedIds.size} person(s) selected
+          </p>
+          <div className="button-row" style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => handleBulkDelete(false)}
+              disabled={selectedIds.size === 0 || isBulkDeleting}
+              style={{ 
+                padding: "0.5rem 1rem",
+                cursor: selectedIds.size === 0 || isBulkDeleting ? "not-allowed" : "pointer",
+                opacity: selectedIds.size === 0 || isBulkDeleting ? 0.5 : 1
+              }}
+            >
+              {isBulkDeleting ? "Deleting..." : "Soft Delete Selected"}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkDelete(true)}
+              disabled={selectedIds.size === 0 || isBulkDeleting}
+              style={{ 
+                backgroundColor: "#dc2626", 
+                color: "#ffffff",
+                padding: "0.5rem 1rem",
+                cursor: selectedIds.size === 0 || isBulkDeleting ? "not-allowed" : "pointer",
+                opacity: selectedIds.size === 0 || isBulkDeleting ? 0.5 : 1
+              }}
+            >
+              {isBulkDeleting ? "Deleting..." : "Hard Delete Selected"}
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkRestore}
+              disabled={selectedIds.size === 0 || isBulkDeleting}
+              style={{ 
+                backgroundColor: "#16a34a", 
+                color: "#ffffff",
+                padding: "0.5rem 1rem",
+                cursor: selectedIds.size === 0 || isBulkDeleting ? "not-allowed" : "pointer",
+                opacity: selectedIds.size === 0 || isBulkDeleting ? 0.5 : 1
+              }}
+            >
+              {isBulkDeleting ? "Restoring..." : "Restore Selected"}
+            </button>
           </div>
         </div>
       </section>
