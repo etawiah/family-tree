@@ -203,8 +203,14 @@ export default function FamilyTreeView() {
           });
 
         // CRITICAL: Must call .open() to activate the interactive form
-        editTree.open(chart.getMainDatum());
-        console.log("[FamilyTreeView] editTree activated with open()");
+        try {
+          const mainDatum = chart.getMainDatum();
+          console.log("[FamilyTreeView] Main datum:", mainDatum);
+          editTree.open(mainDatum);
+          console.log("[FamilyTreeView] editTree activated with open()");
+        } catch (openErr) {
+          console.error("[FamilyTreeView] Error calling editTree.open():", openErr);
+        }
       }
 
       chart.updateTree({ initial: true });
