@@ -60,6 +60,10 @@ export default function PersonForm({ initialData, onSubmit, onCancel, isLoading 
       newErrors["first name"] = "First name is required";
     }
 
+    if (!formData["last name"]?.trim()) {
+      newErrors["last name"] = "Last name is required";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -108,7 +112,7 @@ export default function PersonForm({ initialData, onSubmit, onCancel, isLoading 
       {/* Last Name */}
       <div>
         <label htmlFor="last-name" style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
-          Last Name
+          Last Name *
         </label>
         <input
           id="last-name"
@@ -121,12 +125,17 @@ export default function PersonForm({ initialData, onSubmit, onCancel, isLoading 
           style={{
             width: "100%",
             padding: "0.75rem",
-            border: "1px solid var(--color-border)",
+            border: errors["last name"] ? "2px solid var(--color-error)" : "1px solid var(--color-border)",
             borderRadius: "0.375rem",
             fontSize: "1rem",
             fontFamily: "inherit",
           }}
         />
+        {errors["last name"] && (
+          <div style={{ color: "var(--color-error)", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+            {errors["last name"]}
+          </div>
+        )}
       </div>
 
       {/* Gender */}
@@ -277,6 +286,8 @@ export default function PersonForm({ initialData, onSubmit, onCancel, isLoading 
       <div>
         <ImageUpload
           label="Photo"
+          imageType="headshot"
+          personId={initialData?.id || null}
           onUploadComplete={handlePhotoUpload}
           initialUrl={formData.photo}
         />

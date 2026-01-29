@@ -506,29 +506,75 @@ export default function FamilyTreeView() {
     const container = containerRef.current;
     container.innerHTML = "";
 
+    // Define click handler outside try block to ensure cleanup has access
+    const handleContainerClick = (e) => {
+      // Find the card element by traversing up the SVG DOM
+      // Family-chart wraps cards in <g> (group) elements
+      let target = e.target;
+      let cardGroup = null;
+      let depth = 0;
+      const maxDepth = 10; // Prevent infinite loops
+
+      // Traverse up the DOM tree to find the card group
+      while (target && target !== container && depth < maxDepth) {
+        // Check for family-chart card identifiers
+        // First check for any data-* attributes that might contain the ID
+        if (target.getAttribute) {
+          const dataId = target.getAttribute("data-id") ||
+                        target.getAttribute("id") ||
+                        target.getAttribute("data-person-id");
+
+          if (dataId) {
+            cardGroup = { id: dataId };
+            break;
+          }
+
+          // Check if this is a <g> (group) element that might be a card
+          if (target.tagName === "g") {
+            // Try to extract text content to match against tree data
+            const textContent = target.textContent?.trim() || "";
+
+            // Look for a person whose name matches the card text
+            if (textContent) {
+              const matchedPerson = treeData.find(p => {
+                const fullName = `${p.data["first name"]} ${p.data["last name"]}`.trim();
+                return textContent.includes(fullName) || fullName.includes(textContent);
+              });
+
+              if (matchedPerson) {
+                cardGroup = { id: matchedPerson.id, person: matchedPerson };
+                break;
+              }
+            }
+          }
+        }
+
+        target = target.parentElement;
+        depth++;
+      }
+
+      // If we found a card, open the modal
+      if (cardGroup && cardGroup.person) {
+        setSelectedPerson(cardGroup.person);
+        setShowEditPerson(true);
+        console.log("[FamilyTreeView] Card clicked:", cardGroup.person.data["first name"]);
+      } else if (cardGroup && cardGroup.id) {
+        // Fallback: try to find person by ID
+        const person = treeData.find((p) => String(p.id) === String(cardGroup.id));
+        if (person) {
+          setSelectedPerson(person);
+          setShowEditPerson(true);
+          console.log("[FamilyTreeView] Card clicked:", person.data["first name"]);
+        }
+      }
+    };
+
     try {
       const chart = f3.createChart(container, treeData);
       chart.setCardHtml().setCardDisplay([["first name", "last name"], ["birthday"]]);
 
-      // Handle card click
-      const onCardClick = (cardData) => {
-        const person = treeData.find((p) => p.id === cardData.id);
-        if (person) {
-          setSelectedPerson(person);
-          setShowEditPerson(true);
-        }
-      };
-
-      // Manual click handler since family-chart's built-in modal is broken
-      container.querySelectorAll(".card").forEach((cardElement) => {
-        cardElement.addEventListener("click", () => {
-          const cardId = cardElement.getAttribute("data-id");
-          const cardData = treeData.find((p) => p.id === cardId);
-          if (cardData) {
-            onCardClick(cardData);
-          }
-        });
-      });
+      // Add event listener using event delegation
+      container.addEventListener("click", handleContainerClick);
 
       chart.updateTree({ initial: true });
       console.log("[FamilyTreeView] Tree rendered successfully");
@@ -537,7 +583,13 @@ export default function FamilyTreeView() {
       setSaveError("Failed to render tree. Please refresh the page.");
     }
 
+    // Return cleanup function
     return () => {
+      // Remove click listener
+      if (container) {
+        container.removeEventListener("click", handleContainerClick);
+      }
+      // Clear SVG
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
       }

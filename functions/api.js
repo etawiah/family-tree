@@ -159,6 +159,11 @@ export default {
         return saveFamilyChartTree(db, request, user);
       }
 
+      if (path === "/upload" && method === "POST") {
+        const user = await requireAuth("edit")(request, env);
+        return handleUpload(request, env, user, db);
+      }
+
       return jsonResponse({ error: "Route not found." }, 404);
     } catch (error) {
       // Log errors for debugging without exposing sensitive data.
@@ -354,6 +359,133 @@ async function setupInitialUsers(db, request) {
   console.log("Initial users created.");
   await logAction(db, "system", "auth.setup", { count: users.length });
   return jsonResponse({ message: "Initial users created successfully." }, 201);
+}
+
+/**
+ * POST /upload
+ * Accepts multipart/form-data with an image file and metadata.
+ * Stores the file in R2 and returns a public URL.
+ */
+async function handleUpload(request, env, user, db) {
+  if (!env.BUCKET) {
+    await logAction(db, user.username, "upload.failed", {
+      reason: "R2_bucket_not_configured",
+    });
+    return jsonResponse(
+      { error: "Photo upload not configured. R2 bucket is missing." },
+      503
+    );
+  }
+
+  const formData = await request.formData();
+  const file = formData.get("file");
+  const personId = sanitizeSegment(formData.get("personId") || "unknown");
+  const imageType = sanitizeSegment(formData.get("type") || "image");
+
+  if (!file || typeof file === "string") {
+    await logAction(db, user.username, "upload.failed", {
+      reason: "missing_file",
+    });
+    return jsonResponse({ error: "No file provided." }, 400);
+  }
+
+  // Enforce a reasonable file size limit for safety (1MB max)
+  const maxBytes = 1 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    await logAction(db, user.username, "upload.failed", {
+      reason: "file_too_large",
+      size: file.size,
+    });
+    return jsonResponse(
+      { error: "File too large. Max 1MB allowed." },
+      413
+    );
+  }
+
+  // Read file into memory and validate by magic bytes
+  const buffer = await file.arrayBuffer();
+  const fileType = detectImageType(buffer);
+  if (!fileType) {
+    await logAction(db, user.username, "upload.failed", {
+      reason: "invalid_file_type",
+    });
+    return jsonResponse(
+      { error: "Invalid file type. JPEG, PNG, WebP only." },
+      415
+    );
+  }
+
+  // Generate filename: username-personId-timestamp-type.ext
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `${user.username}-${personId}-${timestamp}-${imageType}.${fileType}`;
+
+  try {
+    await env.BUCKET.put(filename, buffer, {
+      httpMetadata: { contentType: `image/${fileType}` },
+    });
+  } catch (error) {
+    console.error("R2 upload failed:", error);
+    await logAction(db, user.username, "upload.failed", {
+      reason: "r2_error",
+      error: error.message,
+    });
+    return jsonResponse(
+      { error: "Upload failed. Please try again." },
+      502
+    );
+  }
+
+  // Return public URL
+  const R2_PUBLIC_URL = env.R2_PUBLIC_URL || "";
+  const publicUrl = R2_PUBLIC_URL
+    ? new URL(filename, ensureTrailingSlash(R2_PUBLIC_URL)).toString()
+    : filename;
+
+  await logAction(db, user.username, "upload.success", {
+    filename,
+    personId,
+    imageType,
+  });
+
+  return jsonResponse({ url: publicUrl, filename }, 200);
+}
+
+/**
+ * Detect image file type by magic bytes (not just extension).
+ */
+function detectImageType(buffer) {
+  const bytes = new Uint8Array(buffer);
+
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "jpeg";
+  }
+
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return "png";
+  }
+
+  // WebP: "RIFF"...."WEBP"
+  if (
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return "webp";
+  }
+
+  return null;
 }
 
 /**
@@ -1120,4 +1252,19 @@ async function getActivityLog(db, user) {
   const result = await stmt.all();
   await logAction(db, user.username, "admin.activity.view", {});
   return jsonResponse({ activity: result.results });
+}
+
+/**
+ * Helper: Sanitize filename segment to prevent path traversal.
+ * Removes all non-alphanumeric characters except hyphens and underscores.
+ */
+function sanitizeSegment(value) {
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
+/**
+ * Helper: Ensure a URL has a trailing slash.
+ */
+function ensureTrailingSlash(value) {
+  return value.endsWith("/") ? value : `${value}/`;
 }
