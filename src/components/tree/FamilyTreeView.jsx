@@ -179,6 +179,10 @@ export default function FamilyTreeView() {
         .setCardHtml()
         .setCardDisplay([["first name", "last name"], ["birthday"]]);
 
+      // CRITICAL: Must update tree BEFORE calling editTree.open()
+      // This renders the SVG elements so click handlers can be attached
+      chart.updateTree({ initial: true });
+
       if (canEdit) {
         console.log("[FamilyTreeView] Initializing editTree with native API");
         const editTree = chart
@@ -208,12 +212,15 @@ export default function FamilyTreeView() {
           console.log("[FamilyTreeView] Main datum:", mainDatum);
           editTree.open(mainDatum);
           console.log("[FamilyTreeView] editTree activated with open()");
+          // Update tree again after opening editTree
+          chart.updateTree({ initial: true });
         } catch (openErr) {
           console.error("[FamilyTreeView] Error calling editTree.open():", openErr);
         }
+      } else {
+        // If not editing, just render the tree once
+        // (Already called above, no need to call again)
       }
-
-      chart.updateTree({ initial: true });
       console.log("[FamilyTreeView] Chart rendered successfully");
     } catch (err) {
       console.error("[FamilyTreeView] Render error:", err);
