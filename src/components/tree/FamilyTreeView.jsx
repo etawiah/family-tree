@@ -154,23 +154,47 @@ export default function FamilyTreeView() {
   const { data: treeResponse, isLoading, error, refetch } = useQuery({
     queryKey: ["family-chart-tree"],
     queryFn: async () => {
-      const token = localStorage.getItem("family_tree_token") || "";
-      const response = await fetch(`${baseUrl}/api/tree/family-chart`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      try {
+        const token = localStorage.getItem("family_tree_token") || "";
+        console.log("[FamilyTreeView] Fetching tree data, token length:", token.length);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch tree: ${response.statusText}`);
+        const response = await fetch(`${baseUrl}/api/tree/family-chart`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        console.log("[FamilyTreeView] Tree fetch response status:", response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[FamilyTreeView] Tree fetch failed:", response.status, errorText);
+          throw new Error(`Failed to fetch tree: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log("[FamilyTreeView] Tree data received:", {
+          treeLength: data?.tree?.length || 0,
+          hasTree: !!data?.tree,
+        });
+        return data;
+      } catch (err) {
+        console.error("[FamilyTreeView] Tree fetch error:", err);
+        throw err;
       }
-
-      return response.json();
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const treeData = treeResponse?.tree || [];
+
+  // Log query state
+  console.log("[FamilyTreeView] Query state:", {
+    isLoading,
+    hasError: !!error,
+    errorMessage: error?.message,
+    treeDataLength: treeData.length,
+  });
 
   const persistTree = async (nextTree) => {
     const token = localStorage.getItem("family_tree_token") || "";
