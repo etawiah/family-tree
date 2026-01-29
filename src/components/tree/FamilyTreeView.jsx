@@ -180,51 +180,35 @@ export default function FamilyTreeView() {
         .setCardDisplay([["first name", "last name"], ["birthday"]]);
 
       if (canEdit) {
-        console.log("[FamilyTreeView] Initializing editTree");
+        console.log("[FamilyTreeView] Initializing editTree with native API");
         const editTree = chart
           .editTree()
           .setFields([
-            { type: "text", label: "First name", id: "first name" },
-            { type: "text", label: "Last name", id: "last name" },
-            {
-              type: "select",
-              label: "Gender",
-              id: "gender",
-              options: [
-                { label: "Male", value: "M" },
-                { label: "Female", value: "F" },
-              ],
-            },
-            { type: "text", label: "Birthday", id: "birthday" },
-            { type: "text", label: "Deathday", id: "deathday" },
-            { type: "text", label: "Location", id: "location" },
-            { type: "text", label: "Profession", id: "profession" },
-            { type: "textarea", label: "Notes", id: "notes" },
-            { type: "text", label: "Photo", id: "photo" },
+            "first name",
+            "last name",
+            "gender",
+            "birthday",
+            "deathday",
+            "location",
+            "profession",
+            "notes",
+            "photo",
           ])
-          .setCanEdit(() => canEdit)
-          .setCanAdd(() => canEdit)
-          .setCanDelete(() => canEdit)
+          .setEditFirst(true) // Open edit form on card click
+          .setCardClickOpen(card) // Pass the card object
           .setOnChange(() => {
             console.log("[FamilyTreeView] editTree onChange fired");
             const updated = editTree.exportData();
             queueSave(updated);
           });
-        console.log("[FamilyTreeView] editTree initialized successfully");
+
+        // CRITICAL: Must call .open() to activate the interactive form
+        editTree.open(chart.getMainDatum());
+        console.log("[FamilyTreeView] editTree activated with open()");
       }
 
       chart.updateTree({ initial: true });
       console.log("[FamilyTreeView] Chart rendered successfully");
-
-      // Debug: Add click listener to see if clicks are being detected
-      const clickHandler = (e) => {
-        console.log("[FamilyTreeView] Container click detected:", {
-          target: e.target.tagName,
-          class: e.target.className,
-          id: e.target.id,
-        });
-      };
-      container.addEventListener("click", clickHandler);
     } catch (err) {
       console.error("[FamilyTreeView] Render error:", err);
       setSaveError("Failed to render tree. Please refresh the page.");
