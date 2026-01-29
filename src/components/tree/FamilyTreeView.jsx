@@ -93,7 +93,7 @@ export default function FamilyTreeView() {
     container.innerHTML = "";
 
     const chart = f3.createChart(container, treeData);
-    chart
+    const card = chart
       .setCardHtml()
       .setCardDisplay([["first name", "last name"], ["birthday"]]);
 
@@ -121,6 +121,7 @@ export default function FamilyTreeView() {
       .setCanEdit(canEdit)
       .setCanAdd(canEdit)
       .setCanDelete(canEdit)
+      .setCardClickOpen(card)
       .setOnChange(() => {
         if (!canEdit) return;
         const updated = editTree.exportData();
@@ -179,6 +180,12 @@ export default function FamilyTreeView() {
       <div className="tree-header">
         <h1>Family Tree</h1>
       </div>
+
+      {canEdit ? (
+        <div className="tree-helper">
+          Click a person card to edit or add relatives.
+        </div>
+      ) : null}
 
       {saveError && (
         <div className="tree-save-error">
