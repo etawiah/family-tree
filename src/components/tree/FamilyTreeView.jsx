@@ -55,6 +55,8 @@ function AddPersonModal({ isLoading, onSubmit, onCancel }) {
 }
 
 export default function FamilyTreeView() {
+  console.log("[FamilyTreeView] Component mounted");
+
   const containerRef = useRef(null);
   const saveInFlightRef = useRef(false);
   const pendingSaveRef = useRef(null);
@@ -65,10 +67,12 @@ export default function FamilyTreeView() {
   const [isSaving, setIsSaving] = useState(false);
 
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
+  console.log("[FamilyTreeView] canEdit:", canEdit);
 
   const { data: treeResponse, isLoading, error, refetch } = useQuery({
     queryKey: ["family-chart-tree"],
     queryFn: async () => {
+      console.log("[FamilyTreeView] Fetching tree data");
       const token = localStorage.getItem("family_tree_token") || "";
       const response = await fetch(`${baseUrl}/api/tree/family-chart`, {
         headers: {
@@ -80,12 +84,15 @@ export default function FamilyTreeView() {
         throw new Error(`Failed to fetch tree: ${response.statusText}`);
       }
 
-      return response.json();
+      const data = await response.json();
+      console.log("[FamilyTreeView] Tree data fetched:", data);
+      return data;
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const treeData = treeResponse?.tree || [];
+  console.log("[FamilyTreeView] treeData:", treeData, "isLoading:", isLoading, "error:", error);
 
   const persistTree = async (nextTree) => {
     const token = localStorage.getItem("family_tree_token") || "";
@@ -155,7 +162,10 @@ export default function FamilyTreeView() {
   };
 
   useEffect(() => {
+    console.log("[FamilyTreeView] useEffect running - treeData.length:", treeData.length, "canEdit:", canEdit);
+
     if (!containerRef.current || treeData.length === 0) {
+      console.log("[FamilyTreeView] Early return - no container or empty tree");
       return;
     }
 
@@ -163,6 +173,7 @@ export default function FamilyTreeView() {
     container.innerHTML = "";
 
     try {
+      console.log("[FamilyTreeView] Creating chart");
       const chart = f3.createChart(container, treeData);
       const card = chart
         .setCardHtml()
@@ -201,6 +212,7 @@ export default function FamilyTreeView() {
       }
 
       chart.updateTree({ initial: true });
+      console.log("[FamilyTreeView] Chart rendered successfully");
     } catch (err) {
       console.error("[FamilyTreeView] Render error:", err);
       setSaveError("Failed to render tree. Please refresh the page.");
