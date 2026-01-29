@@ -21,7 +21,6 @@ const BLOOD_DEFAULTS = {
 
 export default function RelationshipForm({
   person,
-  treeSide,
   people = [],
   onClose,
   onSuccess,
@@ -59,13 +58,6 @@ export default function RelationshipForm({
     });
     return filtered;
   }, [people, person?.id, searchTerm]);
-
-  const formatTreeSide = (value) => {
-    if (!value) {
-      return "";
-    }
-    return value.charAt(0).toUpperCase() + value.slice(1);
-  };
 
   // Auto-detect next relationship_order for spouse relationships
   const existingSpouseRelationships = useMemo(() => {
@@ -286,7 +278,6 @@ export default function RelationshipForm({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tree_side: treeSide || person.tree_side,
           person_id: person.id,
           related_person_id: Number(relatedPersonId),
           relationship_type: relationshipType,
@@ -425,8 +416,7 @@ export default function RelationshipForm({
                   {relatedPeople.length ? (
                     relatedPeople.map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
-                        {candidate.first_name} {candidate.last_name} (Tree:{" "}
-                        {formatTreeSide(candidate.tree_side || treeSide)})
+                        {candidate.first_name} {candidate.last_name}
                       </option>
                     ))
                   ) : (

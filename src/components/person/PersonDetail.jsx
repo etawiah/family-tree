@@ -106,9 +106,6 @@ export default function PersonDetail({
             <h2>
               {person.first_name} {person.last_name}
             </h2>
-            <p className="subtitle">
-              {person.tree_side?.toUpperCase() || "UNKNOWN"} side
-            </p>
           </div>
           <div className="person-detail-actions">
             {canEdit ? (
@@ -137,7 +134,6 @@ export default function PersonDetail({
 
           <section className="detail-section">
             <h3>Profile</h3>
-            <p>Tree Side: {person.tree_side}</p>
             <p>Birth Date: {person.birth_date || "Unknown"}</p>
             <p>Death Date: {person.death_date || "N/A"}</p>
             <p>Current Location: {person.current_location || "Unknown"}</p>
