@@ -180,6 +180,7 @@ export default function FamilyTreeView() {
         .setCardDisplay([["first name", "last name"], ["birthday"]]);
 
       if (canEdit) {
+        console.log("[FamilyTreeView] Initializing editTree");
         const editTree = chart
           .editTree()
           .setFields([
@@ -206,13 +207,25 @@ export default function FamilyTreeView() {
           .setCanDelete(() => canEdit)
           .setCardClickOpen(card)
           .setOnChange(() => {
+            console.log("[FamilyTreeView] editTree onChange fired");
             const updated = editTree.exportData();
             queueSave(updated);
           });
+        console.log("[FamilyTreeView] editTree initialized successfully");
       }
 
       chart.updateTree({ initial: true });
       console.log("[FamilyTreeView] Chart rendered successfully");
+
+      // Debug: Add click listener to see if clicks are being detected
+      const clickHandler = (e) => {
+        console.log("[FamilyTreeView] Container click detected:", {
+          target: e.target.tagName,
+          class: e.target.className,
+          id: e.target.id,
+        });
+      };
+      container.addEventListener("click", clickHandler);
     } catch (err) {
       console.error("[FamilyTreeView] Render error:", err);
       setSaveError("Failed to render tree. Please refresh the page.");
