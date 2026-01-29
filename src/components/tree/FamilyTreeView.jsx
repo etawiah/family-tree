@@ -87,7 +87,7 @@ export default function FamilyTreeView() {
     if (applyZoomTransformRef.current) {
       applyZoomTransformRef.current(level, transformOverride);
     }
-  }, [zoomTransform]);
+  }, []);
 
   // Initialize family-chart
   useEffect(() => {
@@ -113,9 +113,7 @@ export default function FamilyTreeView() {
       });
 
       // Create SVG container
-      const svg = f3.createSvg({
-        cont: containerRef.current,
-      });
+      const svg = f3.createSvg(containerRef.current);
 
       // Create chart
       const chart = f3.createChart({
@@ -204,8 +202,12 @@ export default function FamilyTreeView() {
       chartRef.current = { store, svg, chart, cards };
 
       // Reset zoom when tree is recreated
-      setZoomLevel(1);
-      setZoomTransform({ x: 0, y: 0, k: 1 });
+      setZoomLevel((current) => (current === 1 ? current : 1));
+      setZoomTransform((current) =>
+        current.x === 0 && current.y === 0 && current.k === 1
+          ? current
+          : { x: 0, y: 0, k: 1 }
+      );
 
       // Render the tree
       store.update.tree({ initial: true });
@@ -233,7 +235,7 @@ export default function FamilyTreeView() {
         containerRef.current.innerHTML = "";
       }
     };
-  }, [treeData, viewMode, showToast, applyZoomTransform]);
+  }, [treeData, viewMode, showToast]);
 
   // Handle zoom controls
   const handleZoomIn = () => {
