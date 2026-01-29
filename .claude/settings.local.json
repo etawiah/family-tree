@@ -20,7 +20,10 @@
       "Bash(wrangler deploy:*)",
       "Bash(npm install:*)",
       "Bash(npm uninstall:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(npx wrangler deploy)",
+      "Bash(npx wrangler:*)",
+      "Bash(curl:*)"
     ]
   }
 }
