@@ -9,6 +9,9 @@ import "./FamilyTreeView.css";
 
 const baseUrl = import.meta.env.VITE_API_URL || "";
 
+// Keep chart reference for debugging
+let globalChartInstance = null;
+
 function ModalOverlay({ children, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -30,7 +33,7 @@ function AddPersonModal({ isLoading, onSubmit, onCancel }) {
       </header>
       <div style={{ padding: "1.5rem" }}>
         <div className="legacy-form-note">
-          Legacy bootstrap form (not part of the native EditTree UI).
+          Add your first family member to get started.
         </div>
         <PersonForm
           isLegacy
@@ -92,7 +95,7 @@ export default function FamilyTreeView() {
   });
 
   const treeData = treeResponse?.tree || [];
-  console.log("[FamilyTreeView] treeData:", treeData, "isLoading:", isLoading, "error:", error);
+  console.log("[FamilyTreeView] treeData.length:", treeData.length, "canEdit:", canEdit);
 
   const persistTree = async (nextTree) => {
     const token = localStorage.getItem("family_tree_token") || "";
@@ -112,16 +115,21 @@ export default function FamilyTreeView() {
   };
 
   const queueSave = (nextTree) => {
+    console.log("[FamilyTreeView] queueSave called with", nextTree.length, "people");
     if (saveInFlightRef.current) {
+      console.log("[FamilyTreeView] Save already in flight, queuing");
       pendingSaveRef.current = nextTree;
       return;
     }
 
     saveInFlightRef.current = true;
     persistTree(nextTree)
-      .then(() => setSaveError(""))
+      .then(() => {
+        console.log("[FamilyTreeView] Save successful");
+        setSaveError("");
+      })
       .catch((err) => {
-        console.error("Save tree error:", err);
+        console.error("[FamilyTreeView] Save error:", err);
         setSaveError(err.message || "Failed to save tree.");
         showToast(`Failed to save tree: ${err.message}`, "error");
       })
@@ -154,7 +162,7 @@ export default function FamilyTreeView() {
       setShowAddPerson(false);
       await refetch();
     } catch (err) {
-      console.error("Add person error:", err);
+      console.error("[FamilyTreeView] Add person error:", err);
       showToast(`Failed to add person: ${err.message}`, "error");
     } finally {
       setIsSaving(false);
@@ -162,7 +170,7 @@ export default function FamilyTreeView() {
   };
 
   useEffect(() => {
-    console.log("[FamilyTreeView] useEffect running - treeData.length:", treeData.length, "canEdit:", canEdit);
+    console.log("[FamilyTreeView] useEffect - treeData.length:", treeData.length, "canEdit:", canEdit);
 
     if (!containerRef.current || treeData.length === 0) {
       console.log("[FamilyTreeView] Early return - no container or empty tree");
@@ -173,64 +181,53 @@ export default function FamilyTreeView() {
     container.innerHTML = "";
 
     try {
-      console.log("[FamilyTreeView] Creating chart");
-      const chart = f3.createChart(container, treeData);
-      const card = chart
+      console.log("[FamilyTreeView] Creating family-chart");
+
+      // Create chart - using exact pattern from family-chart examples
+      const f3Chart = f3.createChart(container, treeData);
+      globalChartInstance = f3Chart;
+
+      // Set up card display
+      const f3Card = f3Chart
         .setCardHtml()
         .setCardDisplay([["first name", "last name"], ["birthday"]]);
 
-      // CRITICAL: Must update tree BEFORE calling editTree.open()
-      // This renders the SVG elements so click handlers can be attached
-      chart.updateTree({ initial: true });
+      console.log("[FamilyTreeView] Chart created, updating tree (first time)");
+      f3Chart.updateTree({ initial: true });
 
       if (canEdit) {
-        console.log("[FamilyTreeView] Initializing editTree with native API");
-        const editTree = chart
+        console.log("[FamilyTreeView] Setting up editTree for editing");
+
+        // Set up edit tree - exact pattern from family-chart examples
+        const f3EditTree = f3Chart
           .editTree()
-          .setFields([
-            "first name",
-            "last name",
-            "gender",
-            "birthday",
-            "deathday",
-            "location",
-            "profession",
-            "notes",
-            "photo",
-          ])
-          .setEditFirst(true) // Open edit form on card click
-          .setCardClickOpen(card) // Pass the card object
+          .setFields(["first name", "last name", "gender", "birthday", "deathday", "location", "profession", "notes", "photo"])
+          .setEditFirst(true)
+          .setCardClickOpen(f3Card)
           .setOnChange(() => {
             console.log("[FamilyTreeView] editTree onChange fired");
-            const updated = editTree.exportData();
+            const updated = f3EditTree.exportData();
             queueSave(updated);
           });
 
-        // CRITICAL: Must call .open() to activate the interactive form
-        try {
-          const mainDatum = chart.getMainDatum();
-          console.log("[FamilyTreeView] Main datum:", mainDatum);
-          editTree.open(mainDatum);
-          console.log("[FamilyTreeView] editTree activated with open()");
-          // Update tree again after opening editTree
-          chart.updateTree({ initial: true });
-        } catch (openErr) {
-          console.error("[FamilyTreeView] Error calling editTree.open():", openErr);
-        }
-      } else {
-        // If not editing, just render the tree once
-        // (Already called above, no need to call again)
+        // Activate editing - exact pattern from family-chart examples
+        console.log("[FamilyTreeView] Opening editTree");
+        f3EditTree.open(f3Chart.getMainDatum());
+        console.log("[FamilyTreeView] Updating tree (second time, after open)");
+        f3Chart.updateTree({ initial: true });
       }
-      console.log("[FamilyTreeView] Chart rendered successfully");
+
+      console.log("[FamilyTreeView] Chart setup complete");
     } catch (err) {
-      console.error("[FamilyTreeView] Render error:", err);
-      setSaveError("Failed to render tree. Please refresh the page.");
+      console.error("[FamilyTreeView] Chart setup error:", err);
+      setSaveError("Failed to render tree: " + err.message);
     }
 
     return () => {
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
       }
+      globalChartInstance = null;
     };
   }, [treeData, canEdit]);
 
@@ -274,7 +271,7 @@ export default function FamilyTreeView() {
                 onClick={() => setShowAddPerson(true)}
                 style={{ marginTop: "1rem" }}
               >
-                Add First Person (Legacy)
+                Add First Person
               </button>
 
               {showAddPerson && (
@@ -299,7 +296,7 @@ export default function FamilyTreeView() {
 
       {canEdit && (
         <div className="tree-helper">
-          Click a person card to edit or add relatives in the native editor.
+          Click a person card to edit their information.
         </div>
       )}
 
