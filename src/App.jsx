@@ -4,9 +4,7 @@ import LoginForm from "./components/auth/LoginForm.jsx";
 import AdminDashboard from "./components/admin/AdminDashboard.jsx";
 import FamilyTreeView from "./components/tree/FamilyTreeView.jsx";
 import ProtectedRoute from "./utils/ProtectedRoute.jsx";
-import AddPersonPage from "./components/person/AddPersonPage.jsx";
 import AppHeader from "./components/layout/AppHeader.jsx";
-import EditPersonPage from "./components/person/EditPersonPage.jsx";
 import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
 import OfflineBanner from "./components/common/OfflineBanner.jsx";
 import { useToast } from "./components/common/Toast.jsx";
@@ -86,11 +84,6 @@ export default function App() {
               <Route path="/admin" element={<AdminDashboard />} />
             </Route>
 
-            {/* Edit-level access: create new people entries. */}
-            <Route element={<ProtectedRoute requiredLevel="edit" />}>
-              <Route path="/people/new" element={<AddPersonPage />} />
-              <Route path="/people/:id/edit" element={<EditPersonPage />} />
-            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </ErrorBoundary>

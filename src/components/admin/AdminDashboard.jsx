@@ -73,9 +73,6 @@ function PeopleList({
         <div className="button-row" style={{ marginTop: "0.5rem" }}>
           {!isDeleted && (
             <>
-              <a className="button-link" href={`/people/${person.id}/edit`}>
-                Edit
-              </a>
               <button
                 type="button"
                 onClick={() => onDelete(person)}
@@ -185,10 +182,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
-  const [peopleBySide, setPeopleBySide] = useState({
-    maternal: [],
-    paternal: [],
-  });
+  const [people, setPeople] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [lastLogin, setLastLogin] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -206,12 +200,11 @@ export default function AdminDashboard() {
   }, []);
 
   const peopleMap = useMemo(() => {
-    const allPeople = [...peopleBySide.maternal, ...peopleBySide.paternal];
-    return allPeople.reduce((acc, person) => {
+    return (people || []).reduce((acc, person) => {
       acc[person.id] = `${person.first_name} ${person.last_name}`;
       return acc;
     }, {});
-  }, [peopleBySide]);
+  }, [people]);
 
   const orphanedPhotos = useMemo(() => {
     return (activity || [])
@@ -241,15 +234,13 @@ export default function AdminDashboard() {
           userRes,
           statsRes,
           activityRes,
-          maternalPeopleRes,
-          paternalPeopleRes,
+          peopleRes,
         ] = await Promise.all([
           fetch(`${baseUrl}/api/snapshots`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/users`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/stats`, { headers: authHeader }),
           fetch(`${baseUrl}/api/admin/activity`, { headers: authHeader }),
-          fetch(`${baseUrl}/api/admin/people?tree_side=maternal`, { headers: authHeader }),
-          fetch(`${baseUrl}/api/admin/people?tree_side=paternal`, { headers: authHeader }),
+          fetch(`${baseUrl}/api/admin/people`, { headers: authHeader }),
         ]);
 
         if (
@@ -257,8 +248,7 @@ export default function AdminDashboard() {
           !userRes.ok ||
           !statsRes.ok ||
           !activityRes.ok ||
-          !maternalPeopleRes.ok ||
-          !paternalPeopleRes.ok
+          !peopleRes.ok
         ) {
           throw new Error("Failed to load admin data.");
         }
@@ -267,17 +257,13 @@ export default function AdminDashboard() {
         const userData = await userRes.json();
         const statsData = await statsRes.json();
         const activityData = await activityRes.json();
-        const maternalPeopleData = await maternalPeopleRes.json();
-        const paternalPeopleData = await paternalPeopleRes.json();
+        const peopleData = await peopleRes.json();
 
         setSnapshots(snapshotData.snapshots || []);
         setUsers(userData.users || []);
         setStats(statsData);
         setActivity(activityData.activity || []);
-        setPeopleBySide({
-          maternal: maternalPeopleData.people || [],
-          paternal: paternalPeopleData.people || [],
-        });
+        setPeople(peopleData.people || []);
 
         // Fetch current user info to show role and attribution context.
         const verifyRes = await fetch(`${baseUrl}/api/auth/verify`, {
@@ -569,21 +555,16 @@ export default function AdminDashboard() {
   };
 
   const reloadPeople = async () => {
-    const [maternalPeopleRes, paternalPeopleRes] = await Promise.all([
-      fetch(`${baseUrl}/api/admin/people?tree_side=maternal`, { headers: authHeader }),
-      fetch(`${baseUrl}/api/admin/people?tree_side=paternal`, { headers: authHeader }),
-    ]);
+    const peopleRes = await fetch(`${baseUrl}/api/admin/people`, {
+      headers: authHeader,
+    });
 
-    if (!maternalPeopleRes.ok || !paternalPeopleRes.ok) {
+    if (!peopleRes.ok) {
       return;
     }
 
-    const maternalPeopleData = await maternalPeopleRes.json();
-    const paternalPeopleData = await paternalPeopleRes.json();
-    setPeopleBySide({
-      maternal: maternalPeopleData.people || [],
-      paternal: paternalPeopleData.people || [],
-    });
+    const peopleData = await peopleRes.json();
+    setPeople(peopleData.people || []);
     // Clear selections when data reloads
     setSelectedIds(new Set());
   };
@@ -669,46 +650,29 @@ export default function AdminDashboard() {
       <section className="admin-section">
         <h2>People Management</h2>
         <p>Use these lists to edit, delete, or restore any record.</p>
-        <div style={{ 
-          marginBottom: "1rem", 
-          padding: "0.75rem", 
-          backgroundColor: "#f8fafc", 
+        <div style={{
+          marginBottom: "1rem",
+          padding: "0.75rem",
+          backgroundColor: "#f8fafc",
           borderRadius: "8px",
           border: "1px solid #e2e8f0"
         }}>
           <strong>Summary:</strong>{" "}
-          Maternal: {peopleBySide.maternal.filter((p) => !p.is_deleted || p.is_deleted === 0).length} active,{" "}
-          {peopleBySide.maternal.filter((p) => p.is_deleted && p.is_deleted !== 0).length} deleted |{" "}
-          Paternal: {peopleBySide.paternal.filter((p) => !p.is_deleted || p.is_deleted === 0).length} active,{" "}
-          {peopleBySide.paternal.filter((p) => p.is_deleted && p.is_deleted !== 0).length} deleted
+          {people.filter((p) => !p.is_deleted || p.is_deleted === 0).length} active,{" "}
+          {people.filter((p) => p.is_deleted && p.is_deleted !== 0).length} deleted
         </div>
-        <div className="people-columns">
-          <div>
-            <h3>Maternal</h3>
-            <PeopleList
-              people={peopleBySide.maternal}
-              selectedIds={selectedIds}
-              onSelectPerson={handleSelectPerson}
-              onSelectAll={handleSelectAll}
-              onDelete={handleDeletePerson}
-              onHardDelete={handleHardDeletePerson}
-              onRestore={handleRestorePerson}
-              isBulkDeleting={isBulkDeleting}
-            />
-          </div>
-          <div>
-            <h3>Paternal</h3>
-            <PeopleList
-              people={peopleBySide.paternal}
-              selectedIds={selectedIds}
-              onSelectPerson={handleSelectPerson}
-              onSelectAll={handleSelectAll}
-              onDelete={handleDeletePerson}
-              onHardDelete={handleHardDeletePerson}
-              onRestore={handleRestorePerson}
-              isBulkDeleting={isBulkDeleting}
-            />
-          </div>
+        <div>
+          <h3>All People</h3>
+          <PeopleList
+            people={people}
+            selectedIds={selectedIds}
+            onSelectPerson={handleSelectPerson}
+            onSelectAll={handleSelectAll}
+            onDelete={handleDeletePerson}
+            onHardDelete={handleHardDeletePerson}
+            onRestore={handleRestorePerson}
+            isBulkDeleting={isBulkDeleting}
+          />
         </div>
         <div 
           className="bulk-actions" 
@@ -812,22 +776,20 @@ export default function AdminDashboard() {
         <h2>Database Stats</h2>
         <div className="stats-grid">
           <div>
-            <strong>Maternal People (Active)</strong>
-            <p>{stats?.people?.maternal || 0}</p>
-            {stats?.people?.maternalTotal !== undefined && stats?.people?.maternalTotal !== stats?.people?.maternal && (
+            <strong>People (Active)</strong>
+            <p>{stats?.people?.active || 0}</p>
+            {stats?.people?.total !== undefined && stats?.people?.total !== stats?.people?.active && (
               <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                Total: {stats.people.maternalTotal} (includes soft-deleted)
+                Total: {stats.people.total} (includes {stats.people.deleted || 0} deleted)
               </p>
             )}
           </div>
           <div>
-            <strong>Paternal People (Active)</strong>
-            <p>{stats?.people?.paternal || 0}</p>
-            {stats?.people?.paternalTotal !== undefined && stats?.people?.paternalTotal !== stats?.people?.paternal && (
-              <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                Total: {stats.people.paternalTotal} (includes soft-deleted)
-              </p>
-            )}
+            <strong>People (Deleted)</strong>
+            <p>{stats?.people?.deleted || 0}</p>
+            <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
+              Soft-deleted records retained for recovery
+            </p>
           </div>
           <div>
             <strong>Relationships</strong>

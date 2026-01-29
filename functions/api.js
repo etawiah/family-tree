@@ -71,7 +71,6 @@ export default {
       // Route matching for endpoints with path parameters.
       const peopleIdMatch = path.match(/^\/api\/people\/(\d+)$/);
       const peopleRestoreMatch = path.match(/^\/api\/people\/(\d+)\/restore$/);
-      const relationshipsIdMatch = path.match(/^\/api\/relationships\/(\d+)$/);
       const snapshotRestoreMatch = path.match(/^\/api\/snapshots\/(\d+)\/restore$/);
       const adminPasswordMatch = path.match(/^\/api\/admin\/users\/([^/]+)\/password$/);
 
@@ -126,35 +125,12 @@ export default {
 
       if (path === "/api/admin/people" && method === "GET") {
         const user = await requireAuth("admin")(request, env);
-        return getAdminPeopleByTreeSide(db, url, user);
+        return getAdminPeople(db, user);
       }
 
       if (path === "/api/admin/people/bulk-delete" && method === "POST") {
         const user = await requireAuth("admin")(request, env);
         return bulkDeletePeople(db, request, user);
-      }
-
-      if (path === "/api/people" && method === "GET") {
-        // Requires VIEW access (auth middleware placeholder).
-        const user = await requireAuth("view")(request, env);
-        return getPeopleByTreeSide(db, url, user);
-      }
-
-      if (peopleIdMatch && method === "GET") {
-        const user = await requireAuth("view")(request, env);
-        const personId = Number(peopleIdMatch[1]);
-        return getPersonById(db, personId, user);
-      }
-
-      if (path === "/api/people" && method === "POST") {
-        const user = await requireAuth("edit")(request, env);
-        return createPerson(db, request, user);
-      }
-
-      if (peopleIdMatch && method === "PUT") {
-        const user = await requireAuth("edit")(request, env);
-        const personId = Number(peopleIdMatch[1]);
-        return updatePerson(db, request, personId, user);
       }
 
       if (peopleRestoreMatch && method === "POST") {
@@ -173,30 +149,14 @@ export default {
         return softDeletePerson(db, personId, user);
       }
 
-      if (path === "/api/relationships" && method === "GET") {
-        const user = await requireAuth("view")(request, env);
-        return getRelationshipsByTreeSide(db, url, user);
-      }
-
-      if (path === "/api/relationships" && method === "POST") {
-        const user = await requireAuth("edit")(request, env);
-        return createRelationship(db, request, user);
-      }
-
-      if (relationshipsIdMatch && method === "DELETE") {
-        const user = await requireAuth("admin")(request, env);
-        const relationshipId = Number(relationshipsIdMatch[1]);
-        return deleteRelationship(db, relationshipId, user);
-      }
-
-      if (path === "/api/tree" && method === "GET") {
-        const user = await requireAuth("view")(request, env);
-        return getTreeHierarchy(db, url, user);
-      }
-
       if (path === "/api/tree/family-chart" && method === "GET") {
         const user = await requireAuth("view")(request, env);
         return getTreeDataForFamilyChart(db, user);
+      }
+
+      if (path === "/api/tree/family-chart" && method === "POST") {
+        const user = await requireAuth("edit")(request, env);
+        return saveFamilyChartTree(db, request, user);
       }
 
       return jsonResponse({ error: "Route not found." }, 404);
@@ -498,316 +458,25 @@ function buildCorsHeaders(env, origin) {
 }
 
 /**
- * Validate the tree_side query parameter.
- *
- * @param {URL} url
- * @returns {{ ok: boolean, value?: string, error?: string }}
- */
-function validateTreeSide(url) {
-  const treeSide = url.searchParams.get("tree_side");
-  if (!treeSide) {
-    return { ok: false, error: "Missing required query param: tree_side." };
-  }
-  if (treeSide !== "maternal" && treeSide !== "paternal") {
-    return {
-      ok: false,
-      error: "tree_side must be 'maternal' or 'paternal'.",
-    };
-  }
-  return { ok: true, value: treeSide };
-}
-
-/**
- * GET /api/people?tree_side=maternal|paternal
- * Returns all people for the specified tree side.
- */
-async function getPeopleByTreeSide(db, url, user) {
-  const validation = validateTreeSide(url);
-  if (!validation.ok) {
-    return jsonResponse({ error: validation.error }, 400);
-  }
-
-  // Query optimized by the tree_side index for fast filtering.
-  const stmt = db.prepare(
-    `
-    SELECT *
-    FROM people
-    WHERE tree_side = ? AND is_deleted = 0
-    ORDER BY last_name, first_name
-  `
-  );
-  const result = await stmt.bind(validation.value).all();
-  console.log("Fetched people list:", { treeSide: validation.value });
-  await logAction(db, user.username, "people.list", { treeSide: validation.value });
-  return jsonResponse({ people: result.results });
-}
-
-/**
- * GET /api/admin/people?tree_side=maternal|paternal
+ * GET /api/admin/people
  * Admin-only endpoint that returns ALL people including soft-deleted.
  */
-async function getAdminPeopleByTreeSide(db, url, user) {
-  const validation = validateTreeSide(url);
-  if (!validation.ok) {
-    return jsonResponse({ error: validation.error }, 400);
-  }
-
-  // Query returns ALL people (no is_deleted filter) for admin management
+async function getAdminPeople(db, user) {
   const stmt = db.prepare(
     `
     SELECT *
     FROM people
-    WHERE tree_side = ?
     ORDER BY is_deleted ASC, last_name, first_name
   `
   );
-  const result = await stmt.bind(validation.value).all();
+  const result = await stmt.all();
   console.log("Fetched admin people list (including soft-deleted):", {
-    treeSide: validation.value,
     count: result.results.length,
   });
   await logAction(db, user.username, "admin.people.list", {
-    treeSide: validation.value,
+    count: result.results.length,
   });
   return jsonResponse({ people: result.results });
-}
-
-/**
- * GET /api/people/:id
- * Returns a single person with their relationships.
- */
-async function getPersonById(db, personId, user) {
-  if (!Number.isInteger(personId)) {
-    return jsonResponse({ error: "Invalid person id." }, 400);
-  }
-
-  // Join strategy: grab the person first, then join relationships to related people.
-  const personStmt = db.prepare(
-    `
-    SELECT *
-    FROM people
-    WHERE id = ? AND is_deleted = 0
-  `
-  );
-  const personResult = await personStmt.bind(personId).first();
-  if (!personResult) {
-    return jsonResponse({ error: "Person not found." }, 404);
-  }
-
-  // JOIN relationships to related people to provide context in one response.
-  const relationshipsStmt = db.prepare(
-    `
-    SELECT
-      r.*,
-      p.first_name AS related_first_name,
-      p.last_name AS related_last_name,
-      p.gender AS related_gender
-    FROM relationships r
-    JOIN people p ON p.id = r.related_person_id
-    WHERE r.person_id = ?
-  `
-  );
-  const relationshipsResult = await relationshipsStmt.bind(personId).all();
-
-  console.log("Fetched person detail:", { personId });
-  await logAction(db, user.username, "people.view", { personId });
-  return jsonResponse({
-    person: personResult,
-    relationships: relationshipsResult.results,
-  });
-}
-
-/**
- * POST /api/people
- * Creates a new person record.
- */
-async function createPerson(db, request, user) {
-  const body = await parseJson(request);
-
-  // Validate required fields before inserting.
-  const requiredFields = ["tree_side", "first_name", "last_name", "gender"];
-  const missingFields = requiredFields.filter((field) => !body[field]);
-  if (missingFields.length) {
-    return jsonResponse(
-      { error: `Missing required fields: ${missingFields.join(", ")}.` },
-      400
-    );
-  }
-
-  if (body.tree_side !== "maternal" && body.tree_side !== "paternal") {
-    return jsonResponse(
-      { error: "tree_side must be 'maternal' or 'paternal'." },
-      400
-    );
-  }
-
-  const timestamp = new Date().toISOString();
-  const stmt = db.prepare(
-    `
-    INSERT INTO people (
-      tree_side,
-      first_name,
-      middle_name,
-      last_name,
-      birth_date,
-      death_date,
-      is_alive,
-      current_location,
-      profession,
-      personal_notes,
-      headshot_url,
-      additional_photo_url,
-      gender,
-      created_at,
-      updated_at,
-      is_deleted
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-  `
-  );
-
-  const result = await stmt
-    .bind(
-      body.tree_side,
-      body.first_name,
-      body.middle_name ?? null,
-      body.last_name,
-      body.birth_date ?? null,
-      body.death_date ?? null,
-      body.is_alive ?? true,
-      body.current_location ?? null,
-      body.profession ?? null,
-      body.personal_notes ?? null,
-      body.headshot_url ?? null,
-      body.additional_photo_url ?? null,
-      body.gender,
-      timestamp,
-      timestamp
-    )
-    .run();
-
-  const personId = result.meta?.last_row_id || result.lastRowId;
-  console.log("Created person:", { personId, resultMeta: result.meta });
-  await logAction(db, user.username, "people.create", { personId });
-  
-  // Fetch the created person to return full object
-  const created = await db
-    .prepare("SELECT * FROM people WHERE id = ?")
-    .bind(personId)
-    .first();
-  
-  return jsonResponse({ id: personId, person: created }, 201);
-}
-
-/**
- * PUT /api/people/:id
- * Partial update of person data.
- */
-async function updatePerson(db, request, personId, user) {
-  if (!Number.isInteger(personId)) {
-    return jsonResponse({ error: "Invalid person id." }, 400);
-  }
-
-  const body = await parseJson(request);
-  const allowedFields = [
-    "tree_side",
-    "first_name",
-    "middle_name",
-    "last_name",
-    "birth_date",
-    "death_date",
-    "is_alive",
-    "current_location",
-    "profession",
-    "personal_notes",
-    "headshot_url",
-    "additional_photo_url",
-    "gender",
-  ];
-
-  // Build a dynamic SQL statement so only provided fields are updated.
-  const updates = [];
-  const values = [];
-  for (const field of allowedFields) {
-    if (field in body) {
-      updates.push(`${field} = ?`);
-      values.push(body[field]);
-    }
-  }
-
-  const existing = await db
-    .prepare(
-      `
-      SELECT headshot_url, additional_photo_url
-      FROM people
-      WHERE id = ? AND is_deleted = 0
-    `
-    )
-    .bind(personId)
-    .first();
-
-  if (!existing) {
-    return jsonResponse({ error: "Person not found." }, 404);
-  }
-
-  if (!updates.length) {
-    return jsonResponse({ error: "No fields provided for update." }, 400);
-  }
-
-  updates.push("updated_at = ?");
-  values.push(new Date().toISOString());
-  values.push(personId);
-
-  const stmt = db.prepare(
-    `
-    UPDATE people
-    SET ${updates.join(", ")}
-    WHERE id = ? AND is_deleted = 0
-  `
-  );
-
-  const result = await stmt.bind(...values).run();
-  if (result.changes === 0) {
-    return jsonResponse({ error: "Person not found." }, 404);
-  }
-
-  console.log("Updated person:", { personId });
-  await logAction(db, user.username, "people.update", { personId });
-
-  const normalized = (value) => (value ? String(value) : "");
-  const removedHeadshot =
-    "headshot_url" in body &&
-    normalized(existing.headshot_url) &&
-    normalized(body.headshot_url) !== normalized(existing.headshot_url);
-  const removedAdditional =
-    "additional_photo_url" in body &&
-    normalized(existing.additional_photo_url) &&
-    normalized(body.additional_photo_url) !==
-      normalized(existing.additional_photo_url);
-
-  if (removedHeadshot) {
-    await logAction(db, user.username, "photos.unlinked", {
-      personId,
-      type: "headshot",
-      url: existing.headshot_url,
-      replacement: body.headshot_url || null,
-    });
-  }
-
-  if (removedAdditional) {
-    await logAction(db, user.username, "photos.unlinked", {
-      personId,
-      type: "additional",
-      url: existing.additional_photo_url,
-      replacement: body.additional_photo_url || null,
-    });
-  }
-
-  const updated = await db
-    .prepare("SELECT * FROM people WHERE id = ? AND is_deleted = 0")
-    .bind(personId)
-    .first();
-
-  return jsonResponse({ person: updated });
 }
 
 /**
@@ -990,234 +659,6 @@ async function bulkDeletePeople(db, request, user) {
 /**
  * GET /api/relationships?tree_side=maternal|paternal
  */
-async function getRelationshipsByTreeSide(db, url, user) {
-  const validation = validateTreeSide(url);
-  if (!validation.ok) {
-    return jsonResponse({ error: validation.error }, 400);
-  }
-
-  const stmt = db.prepare(
-    `
-    SELECT *
-    FROM relationships
-    WHERE tree_side = ?
-  `
-  );
-  const result = await stmt.bind(validation.value).all();
-  console.log("Fetched relationships:", { treeSide: validation.value });
-  await logAction(db, user.username, "relationships.list", {
-    treeSide: validation.value,
-  });
-  return jsonResponse({ relationships: result.results });
-}
-
-/**
- * POST /api/relationships
- * Creates a relationship and its reciprocal for bidirectional navigation.
- */
-async function createRelationship(db, request, user) {
-  const body = await parseJson(request);
-
-  const requiredFields = [
-    "tree_side",
-    "person_id",
-    "related_person_id",
-    "relationship_type",
-  ];
-  const missingFields = requiredFields.filter((field) => !body[field]);
-  if (missingFields.length) {
-    return jsonResponse(
-      { error: `Missing required fields: ${missingFields.join(", ")}.` },
-      400
-    );
-  }
-
-  const reciprocalType = getReciprocalRelationshipType(body.relationship_type);
-  if (!reciprocalType) {
-    return jsonResponse(
-      { error: "Unsupported relationship_type provided." },
-      400
-    );
-  }
-
-  // Insert both directions so the tree can be traversed from either person.
-  const timestamp = new Date().toISOString();
-  const statement = `
-    INSERT INTO relationships (
-      tree_side,
-      person_id,
-      related_person_id,
-      relationship_type,
-      is_blood_relation,
-      marriage_date,
-      divorce_date,
-      relationship_order,
-      created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  const batch = [
-    db
-      .prepare(statement)
-      .bind(
-        body.tree_side,
-        body.person_id,
-        body.related_person_id,
-        body.relationship_type,
-        body.is_blood_relation ?? false,
-        body.marriage_date ?? null,
-        body.divorce_date ?? null,
-        body.relationship_order ?? null,
-        timestamp
-      ),
-    db
-      .prepare(statement)
-      .bind(
-        body.tree_side,
-        body.related_person_id,
-        body.person_id,
-        reciprocalType,
-        body.is_blood_relation ?? false,
-        body.marriage_date ?? null,
-        body.divorce_date ?? null,
-        body.relationship_order ?? null,
-        timestamp
-      ),
-  ];
-
-  // Batch ensures both relationship records are created together.
-  const results = await db.batch(batch);
-  console.log("Created relationship:", {
-    personId: body.person_id,
-    relatedPersonId: body.related_person_id,
-    type: body.relationship_type,
-  });
-  await logAction(db, user.username, "relationships.create", {
-    personId: body.person_id,
-    relatedPersonId: body.related_person_id,
-    type: body.relationship_type,
-  });
-
-  return jsonResponse(
-    { primaryId: results[0]?.meta?.last_row_id },
-    201
-  );
-}
-
-/**
- * DELETE /api/relationships/:id
- * Removes the relationship and its reciprocal record.
- */
-async function deleteRelationship(db, relationshipId, user) {
-  if (!Number.isInteger(relationshipId)) {
-    return jsonResponse({ error: "Invalid relationship id." }, 400);
-  }
-
-  const relationshipStmt = db.prepare(
-    `
-    SELECT *
-    FROM relationships
-    WHERE id = ?
-  `
-  );
-  const relationship = await relationshipStmt.bind(relationshipId).first();
-  if (!relationship) {
-    return jsonResponse({ error: "Relationship not found." }, 404);
-  }
-
-  const reciprocalType = getReciprocalRelationshipType(
-    relationship.relationship_type
-  );
-
-  const deleteStmt = `
-    DELETE FROM relationships
-    WHERE (id = ?)
-       OR (
-            person_id = ?
-        AND related_person_id = ?
-        AND relationship_type = ?
-       )
-  `;
-  await db
-    .prepare(deleteStmt)
-    .bind(
-      relationshipId,
-      relationship.related_person_id,
-      relationship.person_id,
-      reciprocalType
-    )
-    .run();
-
-  console.log("Deleted relationship:", { relationshipId });
-  await logAction(db, user.username, "relationships.delete", { relationshipId });
-  return jsonResponse({ id: relationshipId });
-}
-
-/**
- * GET /api/tree?tree_side=maternal|paternal
- * Builds a hierarchical tree structure from flat data.
- */
-async function getTreeHierarchy(db, url, user) {
-  const validation = validateTreeSide(url);
-  if (!validation.ok) {
-    return jsonResponse({ error: validation.error }, 400);
-  }
-
-  // Fetch people first, then relationships to construct the hierarchy.
-  const peopleStmt = db.prepare(
-    `
-    SELECT *
-    FROM people
-    WHERE tree_side = ? AND is_deleted = 0
-  `
-  );
-  const relationshipsStmt = db.prepare(
-    `
-    SELECT *
-    FROM relationships
-    WHERE tree_side = ?
-  `
-  );
-
-  const peopleResult = await peopleStmt.bind(validation.value).all();
-  const relationshipsResult = await relationshipsStmt.bind(validation.value).all();
-
-  // Tree-building algorithm:
-  // 1. Index people by id for quick lookup.
-  // 2. Attach children to parents based on parent/child relationships.
-  // 3. Return the top-level roots (people without parents in this tree).
-  const peopleById = new Map(
-    peopleResult.results.map((person) => [person.id, { ...person, children: [] }])
-  );
-  const childIds = new Set();
-
-  for (const relationship of relationshipsResult.results) {
-    if (relationship.relationship_type === "parent") {
-      const parent = peopleById.get(relationship.person_id);
-      const child = peopleById.get(relationship.related_person_id);
-      if (parent && child) {
-        parent.children.push(child);
-        childIds.add(child.id);
-      }
-    }
-  }
-
-  const roots = [];
-  for (const person of peopleById.values()) {
-    if (!childIds.has(person.id)) {
-      roots.push(person);
-    }
-  }
-
-  console.log("Built tree hierarchy:", {
-    treeSide: validation.value,
-    roots: roots.length,
-  });
-  await logAction(db, user.username, "tree.view", { treeSide: validation.value });
-
-  return jsonResponse({ tree: roots });
-}
-
 /**
  * GET /api/tree/family-chart
  * Returns tree data in family-chart library format
@@ -1282,51 +723,41 @@ async function getTreeDataForFamilyChart(db, user) {
       }
     }
 
-    // Transform to family-chart format
-    // Build parent lookup map for efficient O(1) parent gender detection
-    const parentMap = {};
-    people.forEach((p) => {
-      parentMap[p.id] = p;
-    });
+    const normalizeGender = (value) => {
+      if (!value) return "M";
+      const normalized = String(value).trim().toLowerCase();
+      if (normalized === "m" || normalized === "male") return "M";
+      if (normalized === "f" || normalized === "female") return "F";
+      return "M";
+    };
 
     const treeData = people.map((person) => {
       const rels = relIndex[person.id] || { spouses: [], children: [], parents: [] };
-
-      // Find father and mother from parents list
-      let father = undefined;
-      let mother = undefined;
-      for (const parentId of rels.parents) {
-        const parent = parentMap[parentId];
-        if (parent) {
-          if (parent.gender === 'male') {
-            father = parentId;
-          } else if (parent.gender === 'female') {
-            mother = parentId;
-          }
-        }
-      }
+      const spouses = [...new Set(rels.spouses.map((s) => s.id))];
+      const children = [...new Set(rels.children)];
+      const parents = [...new Set(rels.parents)];
 
       return {
         id: String(person.id),
         data: {
-          'first name': person.first_name || '',
-          'middle name': person.middle_name || '',
-          'last name': person.last_name || '',
-          'gender': person.gender || 'other',
-          'birthday': person.birth_date || '',
-          'deathday': person.death_date || '',
-          'is_alive': person.is_alive ? 1 : 0,
-          'location': person.current_location || '',
-          'profession': person.profession || '',
-          'notes': person.personal_notes || '',
-          'photo': person.headshot_url || '',
-          'additional_photo': person.additional_photo_url || '',
+          "first name": person.first_name || "",
+          "middle name": person.middle_name || "",
+          "last name": person.last_name || "",
+          "gender": normalizeGender(person.gender),
+          "gender_label": person.gender || "",
+          "birthday": person.birth_date || "",
+          "deathday": person.death_date || "",
+          "is_alive": person.is_alive ? 1 : 0,
+          "location": person.current_location || "",
+          "profession": person.profession || "",
+          "notes": person.personal_notes || "",
+          "photo": person.headshot_url || "",
+          "additional_photo": person.additional_photo_url || "",
         },
         rels: {
-          spouses: rels.spouses.map((s) => s.id),
-          children: rels.children,
-          father,
-          mother,
+          spouses,
+          children,
+          parents,
         },
       };
     });
@@ -1346,28 +777,217 @@ async function getTreeDataForFamilyChart(db, user) {
 }
 
 /**
- * Map relationship types to their reciprocal.
- *
- * - parent <-> child
- * - spouse <-> spouse
- * - ex-spouse <-> ex-spouse
- * - sibling <-> sibling
+ * POST /api/tree/family-chart
+ * Persists family-chart data by replacing people + relationships.
  */
-function getReciprocalRelationshipType(type) {
-  switch (type) {
-    case "parent":
-      return "child";
-    case "child":
-      return "parent";
-    case "spouse":
-      return "spouse";
-    case "ex-spouse":
-      return "ex-spouse";
-    case "sibling":
-      return "sibling";
-    default:
-      return null;
+async function saveFamilyChartTree(db, request, user) {
+  const body = await parseJson(request);
+  const tree = Array.isArray(body) ? body : body?.tree;
+
+  if (!Array.isArray(tree)) {
+    return jsonResponse({ error: "Invalid payload. Expected { tree: [...] }." }, 400);
   }
+
+  const normalizeGender = (value) => {
+    if (!value) return "M";
+    const normalized = String(value).trim().toLowerCase();
+    if (normalized === "m" || normalized === "male") return "M";
+    if (normalized === "f" || normalized === "female") return "F";
+    return "M";
+  };
+
+  const numericIdRegex = /^\d+$/;
+  const idMap = new Map();
+  const usedIds = new Set();
+  let nextId = 1;
+
+  const ensureId = (rawId) => {
+    if (rawId === undefined || rawId === null || rawId === "") {
+      return null;
+    }
+    const key = String(rawId);
+    if (idMap.has(key)) {
+      return idMap.get(key);
+    }
+    if (numericIdRegex.test(key)) {
+      const numeric = Number(key);
+      usedIds.add(numeric);
+      idMap.set(key, numeric);
+      return numeric;
+    }
+    while (usedIds.has(nextId)) {
+      nextId += 1;
+    }
+    const assigned = nextId;
+    nextId += 1;
+    usedIds.add(assigned);
+    idMap.set(key, assigned);
+    return assigned;
+  };
+
+  const normalizedPeople = tree
+    .map((person) => {
+      const personId = ensureId(person?.id);
+      if (!personId) return null;
+      return {
+        id: personId,
+        data: person?.data || {},
+        rels: person?.rels || {},
+      };
+    })
+    .filter(Boolean);
+
+  const relationshipKeys = new Set();
+  const relationships = [];
+  const addRelationship = (personId, relatedId, relationship_type, is_blood_relation) => {
+    if (!personId || !relatedId || personId === relatedId) return;
+    const key = `${personId}:${relatedId}:${relationship_type}`;
+    if (relationshipKeys.has(key)) return;
+    relationshipKeys.add(key);
+    relationships.push({
+      personId,
+      relatedId,
+      relationship_type,
+      is_blood_relation,
+    });
+  };
+
+  const addBidirectional = (personId, relatedId, type, reciprocalType, isBlood) => {
+    addRelationship(personId, relatedId, type, isBlood);
+    addRelationship(relatedId, personId, reciprocalType, isBlood);
+  };
+
+  normalizedPeople.forEach((person) => {
+    const rels = person.rels || {};
+    const parents = (rels.parents || []).map(ensureId).filter(Boolean);
+    const spouses = (rels.spouses || []).map(ensureId).filter(Boolean);
+    const children = (rels.children || []).map(ensureId).filter(Boolean);
+
+    parents.forEach((parentId) =>
+      addBidirectional(person.id, parentId, "parent", "child", true)
+    );
+    children.forEach((childId) =>
+      addBidirectional(person.id, childId, "child", "parent", true)
+    );
+    spouses.forEach((spouseId) =>
+      addBidirectional(person.id, spouseId, "spouse", "spouse", false)
+    );
+  });
+
+  await createSnapshot(db, user.username, "family-chart save");
+
+  const now = new Date().toISOString();
+  const batch = [
+    db.prepare("DELETE FROM relationships"),
+    db.prepare("DELETE FROM people"),
+  ];
+
+  const insertPerson = `
+    INSERT INTO people (
+      id,
+      tree_side,
+      first_name,
+      middle_name,
+      last_name,
+      birth_date,
+      death_date,
+      is_alive,
+      current_location,
+      profession,
+      personal_notes,
+      headshot_url,
+      additional_photo_url,
+      gender,
+      is_deleted,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  for (const person of normalizedPeople) {
+    const data = person.data || {};
+    const firstName = data["first name"] || "";
+    const lastName = data["last name"] || "";
+
+    if (!firstName || !lastName) {
+      return jsonResponse(
+        { error: "Each person requires a first name and last name." },
+        400
+      );
+    }
+
+    const birthday = data["birthday"] || "";
+    const deathday = data["deathday"] || "";
+    const isAliveValue =
+      data["is_alive"] === 0 || data["is_alive"] === false || deathday ? 0 : 1;
+
+    batch.push(
+      db
+        .prepare(insertPerson)
+        .bind(
+          person.id,
+          "both",
+          firstName,
+          data["middle name"] || "",
+          lastName,
+          birthday || null,
+          deathday || null,
+          isAliveValue,
+          data["location"] || null,
+          data["profession"] || null,
+          data["notes"] || null,
+          data["photo"] || null,
+          data["additional_photo"] || null,
+          normalizeGender(data["gender"]),
+          0,
+          now,
+          now
+        )
+    );
+  }
+
+  const insertRelationship = `
+    INSERT INTO relationships (
+      tree_side,
+      person_id,
+      related_person_id,
+      relationship_type,
+      is_blood_relation,
+      marriage_date,
+      divorce_date,
+      relationship_order,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  relationships.forEach((rel) => {
+    batch.push(
+      db
+        .prepare(insertRelationship)
+        .bind(
+          "both",
+          rel.personId,
+          rel.relatedId,
+          rel.relationship_type,
+          rel.is_blood_relation ? 1 : 0,
+          null,
+          null,
+          null,
+          now
+        )
+    );
+  });
+
+  await db.batch(batch);
+  await logAction(db, user.username, "tree.family-chart.save", {
+    people: normalizedPeople.length,
+    relationships: relationships.length,
+  });
+
+  return jsonResponse({
+    people: normalizedPeople.length,
+    relationships: relationships.length,
+  });
 }
 
 /**
@@ -1455,23 +1075,10 @@ async function updateUserPassword(db, request, user, username) {
  * Returns basic database statistics.
  */
 async function getAdminStats(db, user) {
-  const [peopleMaternal, peoplePaternal, peopleMaternalAll, peoplePaternalAll, relationships, relationshipsActive, activity] = await Promise.all([
-    db
-      .prepare(
-        "SELECT COUNT(*) AS count FROM people WHERE tree_side = 'maternal' AND is_deleted = 0"
-      )
-      .first(),
-    db
-      .prepare(
-        "SELECT COUNT(*) AS count FROM people WHERE tree_side = 'paternal' AND is_deleted = 0"
-      )
-      .first(),
-    db
-      .prepare("SELECT COUNT(*) AS count FROM people WHERE tree_side = 'maternal'")
-      .first(),
-    db
-      .prepare("SELECT COUNT(*) AS count FROM people WHERE tree_side = 'paternal'")
-      .first(),
+  const [peopleActive, peopleTotal, peopleDeleted, relationships, relationshipsActive, activity] = await Promise.all([
+    db.prepare("SELECT COUNT(*) AS count FROM people WHERE is_deleted = 0").first(),
+    db.prepare("SELECT COUNT(*) AS count FROM people").first(),
+    db.prepare("SELECT COUNT(*) AS count FROM people WHERE is_deleted != 0").first(),
     db.prepare("SELECT COUNT(*) AS count FROM relationships").first(),
     // Count relationships where both people are active (not soft-deleted)
     db.prepare(`
@@ -1487,10 +1094,9 @@ async function getAdminStats(db, user) {
 
   return jsonResponse({
     people: {
-      maternal: peopleMaternal?.count || 0,
-      paternal: peoplePaternal?.count || 0,
-      maternalTotal: peopleMaternalAll?.count || 0,
-      paternalTotal: peoplePaternalAll?.count || 0,
+      active: peopleActive?.count || 0,
+      total: peopleTotal?.count || 0,
+      deleted: peopleDeleted?.count || 0,
     },
     relationships: relationships?.count || 0,
     relationshipsActive: relationshipsActive?.count || 0,
