@@ -190,9 +190,9 @@ export default function FamilyTreeView() {
             { type: "textarea", label: "Notes", id: "notes" },
             { type: "text", label: "Photo", id: "photo" },
           ])
-          .setCanEdit(true)
-          .setCanAdd(true)
-          .setCanDelete(true)
+          .setCanEdit(() => canEdit)
+          .setCanAdd(() => canEdit)
+          .setCanDelete(() => canEdit)
           .setCardClickOpen(card)
           .setOnChange(() => {
             const updated = editTree.exportData();
