@@ -27,6 +27,8 @@ export default function FamilyTreeView() {
   const [personDetailLoading, setPersonDetailLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [zoomTransform, setZoomTransform] = useState({ x: 0, y: 0, k: 1 });
+  const [initError, setInitError] = useState(null); // Track initialization errors to prevent infinite loop
+  const initAttemptedRef = useRef(false); // Guard to prevent multiple initialization attempts
 
   // Fetch tree data in family-chart format
   const { data: treeResponse, isLoading, error, refetch } = useQuery({
@@ -93,17 +95,36 @@ export default function FamilyTreeView() {
   useEffect(() => {
     console.log("[FamilyTreeView useEffect] treeData length:", treeData.length, "viewMode:", viewMode);
     console.log("[FamilyTreeView useEffect] containerRef.current exists:", !!containerRef.current);
+    console.log("[FamilyTreeView useEffect] Previous initialization error:", initError);
+
+    // Guard: if initialization failed before, don't retry indefinitely
+    if (initError) {
+      console.log("[FamilyTreeView useEffect] Skipping - previous initialization failed");
+      return;
+    }
 
     if (!containerRef.current || treeData.length === 0) {
       console.log("[FamilyTreeView useEffect] Returning early - no container or empty data");
+      initAttemptedRef.current = false;
       return;
     }
 
     const container = containerRef.current;
+    console.log("[FamilyTreeView useEffect] Container type:", container.constructor.name);
+    console.log("[FamilyTreeView useEffect] Container has getBoundingClientRect:", typeof container.getBoundingClientRect === "function");
+
     if (typeof container.getBoundingClientRect !== "function") {
       console.warn("[FamilyTreeView useEffect] Chart container is not a DOM element:", container);
+      setInitError("Chart container is not a valid DOM element");
       return;
     }
+
+    // Guard: prevent multiple initialization attempts with same data
+    if (initAttemptedRef.current) {
+      console.log("[FamilyTreeView useEffect] Already attempted initialization with this data");
+      return;
+    }
+    initAttemptedRef.current = true;
 
     console.log("[FamilyTreeView useEffect] Initializing chart with", treeData.length, 'people');
 
@@ -229,7 +250,13 @@ export default function FamilyTreeView() {
         }
       }, 100);
     } catch (err) {
-      console.error("Error initializing family-chart:", err);
+      console.error("[FamilyTreeView] Error initializing family-chart:", err);
+      console.error("[FamilyTreeView] Error details:", {
+        message: err.message,
+        stack: err.stack,
+        container: containerRef.current?.constructor?.name,
+      });
+      setInitError(err.message);
       showToast(`Error rendering tree: ${err.message}`, "error");
     }
 
@@ -240,8 +267,19 @@ export default function FamilyTreeView() {
         // So we clear innerHTML which removes all listeners automatically
         containerRef.current.innerHTML = "";
       }
+      // Reset initialization guard when component unmounts or data changes
+      initAttemptedRef.current = false;
     };
   }, [treeData, viewMode, showToast]);
+
+  // Clear initialization error when tree data changes (allows retry)
+  useEffect(() => {
+    if (treeData.length > 0 && initError) {
+      console.log("[FamilyTreeView] Tree data changed - clearing previous initialization error");
+      setInitError(null);
+      initAttemptedRef.current = false;
+    }
+  }, [treeData.length, initError]);
 
   // Handle zoom controls
   const handleZoomIn = () => {
@@ -375,6 +413,18 @@ export default function FamilyTreeView() {
         <div className="empty-state">
           <p className="error">Error loading tree: {error.message}</p>
           <button onClick={() => refetch()}>Retry</button>
+        </div>
+      </section>
+    );
+  }
+
+  if (initError) {
+    return (
+      <section className="page tree-page">
+        <div className="empty-state">
+          <p className="error">Error rendering tree visualization: {initError}</p>
+          <p className="error-details">This may be a temporary issue. Try refreshing the page or logging out and back in.</p>
+          <button onClick={() => window.location.reload()}>Reload Page</button>
         </div>
       </section>
     );
