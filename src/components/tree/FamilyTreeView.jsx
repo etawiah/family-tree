@@ -205,7 +205,6 @@ export default function FamilyTreeView() {
           .setCanEdit(() => canEdit)
           .setCanAdd(() => canEdit)
           .setCanDelete(() => canEdit)
-          .setCardClickOpen(card)
           .setOnChange(() => {
             console.log("[FamilyTreeView] editTree onChange fired");
             const updated = editTree.exportData();
