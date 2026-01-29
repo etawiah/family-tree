@@ -30,7 +30,7 @@ export default function AppHeader() {
         <Link to="/">Home</Link>
         <Link to="/tree">Tree</Link>
         {hasRequiredAccess(accessLevel, "edit") ? (
-          <Link to="/people/new">Add Person</Link>
+          <Link to="/tree">Edit Tree</Link>
         ) : null}
         {hasRequiredAccess(accessLevel, "admin") ? (
           <Link to="/admin">Admin</Link>
