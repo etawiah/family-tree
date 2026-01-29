@@ -155,7 +155,13 @@ export default function FamilyTreeView() {
   };
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FamilyTreeView.jsx:110',message:'init-effect-enter',data:{treeCount:treeData.length,canEdit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     if (!containerRef.current || treeData.length === 0) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FamilyTreeView.jsx:113',message:'init-effect-early-return',data:{hasContainer:!!containerRef.current,treeCount:treeData.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
       return;
     }
 
@@ -169,6 +175,9 @@ export default function FamilyTreeView() {
         .setCardDisplay([["first name", "last name"], ["birthday"]]);
 
       if (canEdit) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FamilyTreeView.jsx:129',message:'init-editTree',data:{canEdit},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         const editTree = chart
           .editTree()
           .setFields([
