@@ -99,10 +99,16 @@ export default function FamilyTreeView() {
       return;
     }
 
+    const container = containerRef.current;
+    if (typeof container.getBoundingClientRect !== "function") {
+      console.warn("[FamilyTreeView useEffect] Chart container is not a DOM element:", container);
+      return;
+    }
+
     console.log("[FamilyTreeView useEffect] Initializing chart with", treeData.length, 'people');
 
     // Clear previous chart
-    containerRef.current.innerHTML = "";
+    container.innerHTML = "";
 
     try {
       // Create store with tree data
@@ -113,7 +119,7 @@ export default function FamilyTreeView() {
       });
 
       // Create SVG container
-      const svg = f3.createSvg(containerRef.current);
+      const svg = f3.createSvg(container);
 
       // Create chart
       const chart = f3.createChart({

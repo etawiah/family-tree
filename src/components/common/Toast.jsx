@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
  * Toast notification component for user feedback.
@@ -80,13 +80,13 @@ export function Toast({ message, type = "info", onClose, duration = 5000 }) {
 export function useToast() {
   const [toast, setToast] = useState({ message: "", type: "info" });
 
-  const showToast = (message, type = "info", duration = 5000) => {
+  const showToast = useCallback((message, type = "info", duration = 5000) => {
     setToast({ message, type, duration });
-  };
+  }, []);
 
-  const hideToast = () => {
+  const hideToast = useCallback(() => {
     setToast({ message: "", type: "info" });
-  };
+  }, []);
 
   return {
     toast: toast.message ? (
