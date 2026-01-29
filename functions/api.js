@@ -1219,69 +1219,6 @@ async function getTreeHierarchy(db, url, user) {
 }
 
 /**
- * Calculate ancestry side (maternal/paternal) for color coding
- * Returns map of person ID → ancestry type
- */
-function calculateAncestry(people, relationships) {
-  const ancestryMap = {};
-  const peopleById = new Map(people.map((p) => [p.id, p]));
-
-  // Helper: Find all ancestors of a person
-  function getAncestorSides(personId, visited = new Set()) {
-    if (visited.has(personId)) return { maternal: false, paternal: false };
-    visited.add(personId);
-
-    const parentRels = relationships.filter(
-      (r) => r.person_id === personId && r.relationship_type === 'parent'
-    );
-
-    let hasMaternalAncestor = false;
-    let hasPaternalAncestor = false;
-
-    for (const parentRel of parentRels) {
-      const parent = peopleById.get(parentRel.related_person_id);
-      if (!parent) continue;
-
-      // Check parent's tree_side to determine if this is maternal or paternal
-      if (parent.tree_side === 'maternal') {
-        hasMaternalAncestor = true;
-      } else if (parent.tree_side === 'paternal') {
-        hasPaternalAncestor = true;
-      } else {
-        // If parent has no explicit tree_side, recurse to find their ancestors
-        const parentSides = getAncestorSides(parent.id, visited);
-        hasMaternalAncestor = hasMaternalAncestor || parentSides.maternal;
-        hasPaternalAncestor = hasPaternalAncestor || parentSides.paternal;
-      }
-    }
-
-    return { maternal: hasMaternalAncestor, paternal: hasPaternalAncestor };
-  }
-
-  // Assign ancestry to each person
-  for (const person of people) {
-    if (person.tree_side && person.tree_side !== 'NULL') {
-      // Use explicit tree_side if set
-      ancestryMap[person.id] = person.tree_side;
-    } else {
-      // Calculate from ancestors
-      const sides = getAncestorSides(person.id);
-      if (sides.maternal && sides.paternal) {
-        ancestryMap[person.id] = 'both';
-      } else if (sides.maternal) {
-        ancestryMap[person.id] = 'maternal';
-      } else if (sides.paternal) {
-        ancestryMap[person.id] = 'paternal';
-      } else {
-        ancestryMap[person.id] = 'unknown';
-      }
-    }
-  }
-
-  return ancestryMap;
-}
-
-/**
  * GET /api/tree/family-chart
  * Returns tree data in family-chart library format
  *
@@ -1345,13 +1282,29 @@ async function getTreeDataForFamilyChart(db, user) {
       }
     }
 
-    // Calculate ancestry for color coding
-    const ancestryMap = calculateAncestry(people, relationships);
-
     // Transform to family-chart format
+    // Build parent lookup map for efficient O(1) parent gender detection
+    const parentMap = {};
+    people.forEach((p) => {
+      parentMap[p.id] = p;
+    });
+
     const treeData = people.map((person) => {
       const rels = relIndex[person.id] || { spouses: [], children: [], parents: [] };
-      const ancestry = ancestryMap[person.id] || 'unknown';
+
+      // Find father and mother from parents list
+      let father = undefined;
+      let mother = undefined;
+      for (const parentId of rels.parents) {
+        const parent = parentMap[parentId];
+        if (parent) {
+          if (parent.gender === 'male') {
+            father = parentId;
+          } else if (parent.gender === 'female') {
+            mother = parentId;
+          }
+        }
+      }
 
       return {
         id: String(person.id),
@@ -1368,21 +1321,12 @@ async function getTreeDataForFamilyChart(db, user) {
           'notes': person.personal_notes || '',
           'photo': person.headshot_url || '',
           'additional_photo': person.additional_photo_url || '',
-          'tree_side': person.tree_side || 'both',
-          'ancestry': ancestry, // Color coding hint: maternal, paternal, both, unknown
-          'created_at': person.created_at || '',
         },
         rels: {
           spouses: rels.spouses.map((s) => s.id),
           children: rels.children,
-          father: rels.parents.find((p) => {
-            const parent = people.find((per) => per.id === parseInt(p));
-            return parent && parent.gender === 'male';
-          }),
-          mother: rels.parents.find((p) => {
-            const parent = people.find((per) => per.id === parseInt(p));
-            return parent && parent.gender === 'female';
-          }),
+          father,
+          mother,
         },
       };
     });
