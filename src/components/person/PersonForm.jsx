@@ -13,14 +13,11 @@ export default function PersonForm({
   onSubmit,
   onCancel,
   submitLabel = "Save Person",
-  warnOnTreeSideChange = false,
-  hasRelationships = false,
   submitError = "",
   submitSuccess = "",
   quickAddType = null,
 }) {
   const [formState, setFormState] = useState(() => ({
-    tree_side: initialValues.tree_side || "maternal",
     first_name: initialValues.first_name || "",
     middle_name: initialValues.middle_name || "",
     last_name: initialValues.last_name || "",
@@ -43,7 +40,6 @@ export default function PersonForm({
 
   useEffect(() => {
     setFormState({
-      tree_side: initialValues.tree_side || "maternal",
       first_name: initialValues.first_name || "",
       middle_name: initialValues.middle_name || "",
       last_name: initialValues.last_name || "",
@@ -100,11 +96,6 @@ export default function PersonForm({
       }
       case "gender": {
         const validation = validationRules.validateGender(formState.gender);
-        fieldError = validation.valid ? null : validation.error;
-        break;
-      }
-      case "tree_side": {
-        const validation = validationRules.validateTreeSide(formState.tree_side);
         fieldError = validation.valid ? null : validation.error;
         break;
       }
@@ -184,7 +175,6 @@ export default function PersonForm({
         last_name: true,
         middle_name: true,
         gender: true,
-        tree_side: true,
         birth_date: true,
         death_date: true,
         current_location: true,
@@ -282,45 +272,6 @@ export default function PersonForm({
               required
               {...props}
             />
-          )}
-        </FieldLabel>
-
-        <FieldLabel
-          label="Tree Side"
-          required
-          helpText="Select which family tree this person belongs to. Maternal = mother's side, Paternal = father's side."
-          error={errors.tree_side}
-          fieldId="tree-side"
-          touched={touched.tree_side}
-        >
-          {(props) => (
-            <select
-              value={formState.tree_side}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                if (
-                  warnOnTreeSideChange &&
-                  hasRelationships &&
-                  initialValues.tree_side &&
-                  initialValues.tree_side !== nextValue
-                ) {
-                  const confirmed = window.confirm(
-                    "This person has relationships. Changing tree side may cause issues. Continue?"
-                  );
-                  if (!confirmed) {
-                    return;
-                  }
-                }
-                updateField("tree_side", nextValue);
-              }}
-              onBlur={() => handleBlur("tree_side")}
-              required
-              {...props}
-            >
-              <option value="">Select tree side...</option>
-              <option value="maternal">Maternal (Mother's side)</option>
-              <option value="paternal">Paternal (Father's side)</option>
-            </select>
           )}
         </FieldLabel>
 

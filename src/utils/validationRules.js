@@ -282,9 +282,6 @@ export function validatePersonForm(formState) {
   const genderVal = validateGender(formState.gender);
   if (!genderVal.valid) errors.gender = genderVal.error;
 
-  const treeSideVal = validateTreeSide(formState.tree_side);
-  if (!treeSideVal.valid) errors.tree_side = treeSideVal.error;
-
   // Optional fields - only validate if provided
   const middleNameVal = validateMiddleName(formState.middle_name);
   if (!middleNameVal.valid) errors.middle_name = middleNameVal.error;

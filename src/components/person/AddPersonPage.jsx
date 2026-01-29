@@ -56,7 +56,7 @@ export default function AddPersonPage() {
       <h1>Add a person</h1>
       <p>
         Fill out the details below. Required fields are first name, last name,
-        gender, and tree side.
+        and gender.
       </p>
       <ErrorDisplay
         error={error}
