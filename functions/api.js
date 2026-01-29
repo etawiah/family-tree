@@ -570,6 +570,8 @@ function buildCorsHeaders(env, origin) {
     "https://family-tree.tawiah.net",
     "https://family-tree-a6g.pages.dev",
     "https://family-tree-app.pages.dev",
+    "http://localhost:5173",
+    "http://localhost:5174",
   ];
   const allowedOrigins = configured.length ? configured : defaultOrigins;
 
