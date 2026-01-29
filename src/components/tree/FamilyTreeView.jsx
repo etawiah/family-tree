@@ -1,18 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import * as f3 from "family-chart";
 import "family-chart/styles/family-chart.css";
 import { useToast } from "../common/Toast.jsx";
 import { getAccessLevel, hasRequiredAccess } from "../../services/auth.js";
 import PersonForm from "../person/PersonForm.jsx";
-import RelationshipForm from "../relationships/RelationshipForm.jsx";
 import "./FamilyTreeView.css";
 
 const baseUrl = import.meta.env.VITE_API_URL || "";
 
-/**
- * Modal overlay for forms
- */
 function ModalOverlay({ children, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -23,9 +19,6 @@ function ModalOverlay({ children, onClose }) {
   );
 }
 
-/**
- * Add Person Modal
- */
 function AddPersonModal({ isLoading, onSubmit, onCancel }) {
   return (
     <ModalOverlay onClose={onCancel}>
@@ -36,7 +29,11 @@ function AddPersonModal({ isLoading, onSubmit, onCancel }) {
         </button>
       </header>
       <div style={{ padding: "1.5rem" }}>
+        <div className="legacy-form-note">
+          Legacy bootstrap form (not part of the native EditTree UI).
+        </div>
         <PersonForm
+          isLegacy
           initialData={{
             "first name": "",
             "last name": "",
@@ -57,283 +54,39 @@ function AddPersonModal({ isLoading, onSubmit, onCancel }) {
   );
 }
 
-/**
- * Edit Person Modal
- */
-function EditPersonModal({
-  person,
-  treeData,
-  isLoading,
-  onSubmit,
-  onAddRelationship,
-  onRemoveRelationship,
-  onCancel,
-  canEdit,
-}) {
-  return (
-    <ModalOverlay onClose={onCancel}>
-      <header className="modal-header">
-        <h2>
-          Edit {person.data["first name"]} {person.data["last name"]}
-        </h2>
-        <button type="button" onClick={onCancel} disabled={isLoading}>
-          ✕
-        </button>
-      </header>
-      <div style={{ maxHeight: "80vh", overflowY: "auto", padding: "1.5rem" }}>
-        {/* Person Form */}
-        <div style={{ marginBottom: "2rem" }}>
-          <h3 style={{ marginBottom: "1rem" }}>Personal Information</h3>
-          <PersonForm
-            initialData={person.data}
-            onSubmit={onSubmit}
-            onCancel={onCancel}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* Relationships Section */}
-        {canEdit && (
-          <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1.5rem" }}>
-            <h3 style={{ marginBottom: "1rem" }}>Relationships</h3>
-
-            {/* Existing relationships */}
-            {person.rels && (
-              <div style={{ marginBottom: "1.5rem" }}>
-                <h4 style={{ fontSize: "0.95rem", marginBottom: "0.75rem", color: "var(--color-text-muted)" }}>
-                  Connected People
-                </h4>
-
-                {/* Parents */}
-                {person.rels.parents && person.rels.parents.length > 0 && (
-                  <div style={{ marginBottom: "1rem" }}>
-                    <div style={{ fontWeight: 500, marginBottom: "0.5rem" }}>Parents:</div>
-                    {person.rels.parents.map((parentId) => {
-                      const parent = treeData.find((p) => p.id === parentId);
-                      return (
-                        <div
-                          key={parentId}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            padding: "0.5rem",
-                            background: "var(--color-bg-secondary)",
-                            borderRadius: "0.375rem",
-                            marginBottom: "0.5rem",
-                            fontSize: "0.9rem",
-                          }}
-                        >
-                          <span>
-                            {parent?.data["first name"]} {parent?.data["last name"]}
-                          </span>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              onClick={() => onRemoveRelationship(parentId, "parent")}
-                              style={{
-                                background: "transparent",
-                                border: "none",
-                                color: "var(--color-error)",
-                                cursor: "pointer",
-                                fontSize: "0.85rem",
-                              }}
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Spouses */}
-                {person.rels.spouses && person.rels.spouses.length > 0 && (
-                  <div style={{ marginBottom: "1rem" }}>
-                    <div style={{ fontWeight: 500, marginBottom: "0.5rem" }}>Spouses:</div>
-                    {person.rels.spouses.map((spouseId) => {
-                      const spouse = treeData.find((p) => p.id === spouseId);
-                      return (
-                        <div
-                          key={spouseId}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            padding: "0.5rem",
-                            background: "var(--color-bg-secondary)",
-                            borderRadius: "0.375rem",
-                            marginBottom: "0.5rem",
-                            fontSize: "0.9rem",
-                          }}
-                        >
-                          <span>
-                            {spouse?.data["first name"]} {spouse?.data["last name"]}
-                          </span>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              onClick={() => onRemoveRelationship(spouseId, "spouse")}
-                              style={{
-                                background: "transparent",
-                                border: "none",
-                                color: "var(--color-error)",
-                                cursor: "pointer",
-                                fontSize: "0.85rem",
-                              }}
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Children */}
-                {person.rels.children && person.rels.children.length > 0 && (
-                  <div style={{ marginBottom: "1rem" }}>
-                    <div style={{ fontWeight: 500, marginBottom: "0.5rem" }}>Children:</div>
-                    {person.rels.children.map((childId) => {
-                      const child = treeData.find((p) => p.id === childId);
-                      return (
-                        <div
-                          key={childId}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            padding: "0.5rem",
-                            background: "var(--color-bg-secondary)",
-                            borderRadius: "0.375rem",
-                            marginBottom: "0.5rem",
-                            fontSize: "0.9rem",
-                          }}
-                        >
-                          <span>
-                            {child?.data["first name"]} {child?.data["last name"]}
-                          </span>
-                          {canEdit && (
-                            <button
-                              type="button"
-                              onClick={() => onRemoveRelationship(childId, "child")}
-                              style={{
-                                background: "transparent",
-                                border: "none",
-                                color: "var(--color-error)",
-                                cursor: "pointer",
-                                fontSize: "0.85rem",
-                              }}
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Add relationship button */}
-            <button
-              type="button"
-              onClick={() => onAddRelationship()}
-              style={{
-                padding: "0.75rem 1.5rem",
-                background: "var(--color-primary)",
-                color: "white",
-                border: "none",
-                borderRadius: "0.375rem",
-                cursor: "pointer",
-                width: "100%",
-              }}
-            >
-              + Add Relationship
-            </button>
-          </div>
-        )}
-      </div>
-    </ModalOverlay>
-  );
-}
-
-/**
- * Add Relationship Modal
- */
-function AddRelationshipModal({ person, treeData, isLoading, onSubmit, onCancel }) {
-  return (
-    <ModalOverlay onClose={onCancel}>
-      <header className="modal-header">
-        <h2>Add Relationship for {person.data["first name"]}</h2>
-        <button type="button" onClick={onCancel} disabled={isLoading}>
-          ✕
-        </button>
-      </header>
-      <div style={{ padding: "1.5rem" }}>
-        <RelationshipForm
-          person={person}
-          treeData={treeData}
-          onSubmit={onSubmit}
-          onCancel={onCancel}
-          isLoading={isLoading}
-        />
-      </div>
-    </ModalOverlay>
-  );
-}
-
-/**
- * Family Tree View using family-chart for visualization
- * Custom forms for editing
- */
 export default function FamilyTreeView() {
   const containerRef = useRef(null);
+  const saveInFlightRef = useRef(false);
+  const pendingSaveRef = useRef(null);
   const { showToast } = useToast();
-  const queryClient = useQueryClient();
 
-  // Modal states
   const [showAddPerson, setShowAddPerson] = useState(false);
-  const [showEditPerson, setShowEditPerson] = useState(false);
-  const [showAddRelationship, setShowAddRelationship] = useState(false);
-  const [selectedPerson, setSelectedPerson] = useState(null);
   const [saveError, setSaveError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const canEdit = hasRequiredAccess(getAccessLevel(), "edit");
 
-  // Fetch tree data
   const { data: treeResponse, isLoading, error, refetch } = useQuery({
     queryKey: ["family-chart-tree"],
     queryFn: async () => {
-      try {
-        const token = localStorage.getItem("family_tree_token") || "";
-        console.log("[FamilyTreeView] Fetching tree data");
+      const token = localStorage.getItem("family_tree_token") || "";
+      const response = await fetch(`${baseUrl}/api/tree/family-chart`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        const response = await fetch(`${baseUrl}/api/tree/family-chart`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch tree: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log("[FamilyTreeView] Tree loaded:", data.tree?.length || 0, "people");
-        return data;
-      } catch (err) {
-        console.error("[FamilyTreeView] Fetch error:", err);
-        throw err;
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tree: ${response.statusText}`);
       }
+
+      return response.json();
     },
     staleTime: 5 * 60 * 1000,
   });
 
   const treeData = treeResponse?.tree || [];
 
-  // Persist tree changes
   const persistTree = async (nextTree) => {
     const token = localStorage.getItem("family_tree_token") || "";
     const response = await fetch(`${baseUrl}/api/tree/family-chart`, {
@@ -351,7 +104,30 @@ export default function FamilyTreeView() {
     }
   };
 
-  // Handle add person
+  const queueSave = (nextTree) => {
+    if (saveInFlightRef.current) {
+      pendingSaveRef.current = nextTree;
+      return;
+    }
+
+    saveInFlightRef.current = true;
+    persistTree(nextTree)
+      .then(() => setSaveError(""))
+      .catch((err) => {
+        console.error("Save tree error:", err);
+        setSaveError(err.message || "Failed to save tree.");
+        showToast(`Failed to save tree: ${err.message}`, "error");
+      })
+      .finally(() => {
+        saveInFlightRef.current = false;
+        if (pendingSaveRef.current) {
+          const pending = pendingSaveRef.current;
+          pendingSaveRef.current = null;
+          queueSave(pending);
+        }
+      });
+  };
+
   const handleAddPerson = async (formData) => {
     if (!formData["first name"]?.trim()) {
       showToast("First name is required", "error");
@@ -378,126 +154,6 @@ export default function FamilyTreeView() {
     }
   };
 
-  // Handle edit person
-  const handleEditPerson = async (formData) => {
-    setIsSaving(true);
-    try {
-      const updated = treeData.map((p) =>
-        p.id === selectedPerson.id ? { ...p, data: formData } : p
-      );
-
-      await persistTree(updated);
-      showToast("Person updated", "success");
-      setShowEditPerson(false);
-      setSelectedPerson(null);
-      await refetch();
-    } catch (err) {
-      console.error("Edit person error:", err);
-      showToast(`Failed to update person: ${err.message}`, "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle add relationship
-  const handleAddRelationship = async (relationshipData) => {
-    setIsSaving(true);
-    try {
-      const { relationType, relatedPersonId } = relationshipData;
-
-      // Update selected person's relationships
-      const updatedTree = treeData.map((p) => {
-        if (p.id !== selectedPerson.id) return p;
-
-        const updated = { ...p };
-        if (relationType === "spouse") {
-          if (!updated.rels.spouses) updated.rels.spouses = [];
-          if (!updated.rels.spouses.includes(relatedPersonId)) {
-            updated.rels.spouses.push(relatedPersonId);
-          }
-        } else if (relationType === "child") {
-          if (!updated.rels.children) updated.rels.children = [];
-          if (!updated.rels.children.includes(relatedPersonId)) {
-            updated.rels.children.push(relatedPersonId);
-          }
-        } else if (relationType === "parent") {
-          if (!updated.rels.parents) updated.rels.parents = [];
-          if (!updated.rels.parents.includes(relatedPersonId)) {
-            updated.rels.parents.push(relatedPersonId);
-          }
-        }
-
-        return updated;
-      });
-
-      // Add reverse relationship to related person
-      const finalTree = updatedTree.map((p) => {
-        if (p.id !== relatedPersonId) return p;
-
-        const updated = { ...p };
-        if (relationType === "spouse") {
-          if (!updated.rels.spouses) updated.rels.spouses = [];
-          if (!updated.rels.spouses.includes(selectedPerson.id)) {
-            updated.rels.spouses.push(selectedPerson.id);
-          }
-        } else if (relationType === "child") {
-          if (!updated.rels.parents) updated.rels.parents = [];
-          if (!updated.rels.parents.includes(selectedPerson.id)) {
-            updated.rels.parents.push(selectedPerson.id);
-          }
-        } else if (relationType === "parent") {
-          if (!updated.rels.children) updated.rels.children = [];
-          if (!updated.rels.children.includes(selectedPerson.id)) {
-            updated.rels.children.push(selectedPerson.id);
-          }
-        }
-
-        return updated;
-      });
-
-      await persistTree(finalTree);
-      showToast("Relationship added", "success");
-      setShowAddRelationship(false);
-      await refetch();
-    } catch (err) {
-      console.error("Add relationship error:", err);
-      showToast(`Failed to add relationship: ${err.message}`, "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle remove relationship
-  const handleRemoveRelationship = async (relatedPersonId, relationType) => {
-    setIsSaving(true);
-    try {
-      const updatedTree = treeData.map((p) => {
-        if (p.id === selectedPerson.id) {
-          const updated = { ...p };
-          if (relationType === "spouse") {
-            updated.rels.spouses = updated.rels.spouses.filter((id) => id !== relatedPersonId);
-          } else if (relationType === "child") {
-            updated.rels.children = updated.rels.children.filter((id) => id !== relatedPersonId);
-          } else if (relationType === "parent") {
-            updated.rels.parents = updated.rels.parents.filter((id) => id !== relatedPersonId);
-          }
-          return updated;
-        }
-        return p;
-      });
-
-      await persistTree(updatedTree);
-      showToast("Relationship removed", "success");
-      await refetch();
-    } catch (err) {
-      console.error("Remove relationship error:", err);
-      showToast(`Failed to remove relationship: ${err.message}`, "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Initialize family-chart
   useEffect(() => {
     if (!containerRef.current || treeData.length === 0) {
       return;
@@ -506,97 +162,57 @@ export default function FamilyTreeView() {
     const container = containerRef.current;
     container.innerHTML = "";
 
-    // Define click handler outside try block to ensure cleanup has access
-    const handleContainerClick = (e) => {
-      // Find the card element by traversing up the SVG DOM
-      // Family-chart wraps cards in <g> (group) elements
-      let target = e.target;
-      let cardGroup = null;
-      let depth = 0;
-      const maxDepth = 10; // Prevent infinite loops
-
-      // Traverse up the DOM tree to find the card group
-      while (target && target !== container && depth < maxDepth) {
-        // Check for family-chart card identifiers
-        // First check for any data-* attributes that might contain the ID
-        if (target.getAttribute) {
-          const dataId = target.getAttribute("data-id") ||
-                        target.getAttribute("id") ||
-                        target.getAttribute("data-person-id");
-
-          if (dataId) {
-            cardGroup = { id: dataId };
-            break;
-          }
-
-          // Check if this is a <g> (group) element that might be a card
-          if (target.tagName === "g") {
-            // Try to extract text content to match against tree data
-            const textContent = target.textContent?.trim() || "";
-
-            // Look for a person whose name matches the card text
-            if (textContent) {
-              const matchedPerson = treeData.find(p => {
-                const fullName = `${p.data["first name"]} ${p.data["last name"]}`.trim();
-                return textContent.includes(fullName) || fullName.includes(textContent);
-              });
-
-              if (matchedPerson) {
-                cardGroup = { id: matchedPerson.id, person: matchedPerson };
-                break;
-              }
-            }
-          }
-        }
-
-        target = target.parentElement;
-        depth++;
-      }
-
-      // If we found a card, open the modal
-      if (cardGroup && cardGroup.person) {
-        setSelectedPerson(cardGroup.person);
-        setShowEditPerson(true);
-        console.log("[FamilyTreeView] Card clicked:", cardGroup.person.data["first name"]);
-      } else if (cardGroup && cardGroup.id) {
-        // Fallback: try to find person by ID
-        const person = treeData.find((p) => String(p.id) === String(cardGroup.id));
-        if (person) {
-          setSelectedPerson(person);
-          setShowEditPerson(true);
-          console.log("[FamilyTreeView] Card clicked:", person.data["first name"]);
-        }
-      }
-    };
-
     try {
       const chart = f3.createChart(container, treeData);
-      chart.setCardHtml().setCardDisplay([["first name", "last name"], ["birthday"]]);
+      const card = chart
+        .setCardHtml()
+        .setCardDisplay([["first name", "last name"], ["birthday"]]);
 
-      // Add event listener using event delegation
-      container.addEventListener("click", handleContainerClick);
+      if (canEdit) {
+        const editTree = chart
+          .editTree()
+          .setFields([
+            { type: "text", label: "First name", id: "first name" },
+            { type: "text", label: "Last name", id: "last name" },
+            {
+              type: "select",
+              label: "Gender",
+              id: "gender",
+              options: [
+                { label: "Male", value: "M" },
+                { label: "Female", value: "F" },
+              ],
+            },
+            { type: "text", label: "Birthday", id: "birthday" },
+            { type: "text", label: "Deathday", id: "deathday" },
+            { type: "text", label: "Location", id: "location" },
+            { type: "text", label: "Profession", id: "profession" },
+            { type: "textarea", label: "Notes", id: "notes" },
+            { type: "text", label: "Photo", id: "photo" },
+          ])
+          .setCanEdit(true)
+          .setCanAdd(true)
+          .setCanDelete(true)
+          .setCardClickOpen(card)
+          .setOnChange(() => {
+            const updated = editTree.exportData();
+            queueSave(updated);
+          });
+      }
 
       chart.updateTree({ initial: true });
-      console.log("[FamilyTreeView] Tree rendered successfully");
     } catch (err) {
       console.error("[FamilyTreeView] Render error:", err);
       setSaveError("Failed to render tree. Please refresh the page.");
     }
 
-    // Return cleanup function
     return () => {
-      // Remove click listener
-      if (container) {
-        container.removeEventListener("click", handleContainerClick);
-      }
-      // Clear SVG
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
       }
     };
-  }, [treeData]);
+  }, [treeData, canEdit]);
 
-  // Loading state
   if (isLoading) {
     return (
       <section className="page tree-page">
@@ -607,7 +223,6 @@ export default function FamilyTreeView() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <section className="page tree-page">
@@ -619,7 +234,6 @@ export default function FamilyTreeView() {
     );
   }
 
-  // Empty tree
   if (treeData.length === 0) {
     return (
       <section className="page tree-page">
@@ -635,11 +249,11 @@ export default function FamilyTreeView() {
             <>
               <button
                 type="button"
-                className="primary-button"
+                className="primary-button legacy-button"
                 onClick={() => setShowAddPerson(true)}
                 style={{ marginTop: "1rem" }}
               >
-                Add First Person
+                Add First Person (Legacy)
               </button>
 
               {showAddPerson && (
@@ -656,21 +270,17 @@ export default function FamilyTreeView() {
     );
   }
 
-  // Tree view
   return (
     <section className="page tree-page">
       <div className="tree-header">
         <h1>Family Tree</h1>
-        {canEdit && (
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => setShowAddPerson(true)}
-          >
-            + Add Person
-          </button>
-        )}
       </div>
+
+      {canEdit && (
+        <div className="tree-helper">
+          Click a person card to edit or add relatives in the native editor.
+        </div>
+      )}
 
       {saveError && (
         <div className="tree-save-error">
@@ -682,41 +292,6 @@ export default function FamilyTreeView() {
       )}
 
       <div ref={containerRef} className="family-chart-container" />
-
-      {/* Modals */}
-      {showAddPerson && (
-        <AddPersonModal
-          isLoading={isSaving}
-          onSubmit={handleAddPerson}
-          onCancel={() => setShowAddPerson(false)}
-        />
-      )}
-
-      {showEditPerson && selectedPerson && (
-        <EditPersonModal
-          person={selectedPerson}
-          treeData={treeData}
-          isLoading={isSaving}
-          onSubmit={handleEditPerson}
-          onAddRelationship={() => setShowAddRelationship(true)}
-          onRemoveRelationship={handleRemoveRelationship}
-          onCancel={() => {
-            setShowEditPerson(false);
-            setSelectedPerson(null);
-          }}
-          canEdit={canEdit}
-        />
-      )}
-
-      {showAddRelationship && selectedPerson && (
-        <AddRelationshipModal
-          person={selectedPerson}
-          treeData={treeData}
-          isLoading={isSaving}
-          onSubmit={handleAddRelationship}
-          onCancel={() => setShowAddRelationship(false)}
-        />
-      )}
     </section>
   );
 }

@@ -10,6 +10,7 @@ export default function RelationshipForm({
   onSubmit,
   onCancel,
   isLoading,
+  isLegacy = false,
 }) {
   const [relationType, setRelationType] = useState("spouse");
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,7 +38,16 @@ export default function RelationshipForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <form
+      onSubmit={handleSubmit}
+      className={isLegacy ? "legacy-form" : undefined}
+      style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
+    >
+      {isLegacy && (
+        <div className="legacy-form-note">
+          Legacy form (not connected to native EditTree UI).
+        </div>
+      )}
       {/* Relationship Type */}
       <div>
         <label htmlFor="relationship-type" style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>

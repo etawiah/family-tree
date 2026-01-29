@@ -5,7 +5,13 @@ import ImageUpload from "./ImageUpload.jsx";
  * Simple PersonForm for family-chart integration
  * Works with space-separated field names ("first name", "last name", etc.)
  */
-export default function PersonForm({ initialData, onSubmit, onCancel, isLoading }) {
+export default function PersonForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  isLoading,
+  isLegacy = false,
+}) {
   const [formData, setFormData] = useState({
     "first name": "",
     "last name": "",
@@ -79,7 +85,16 @@ export default function PersonForm({ initialData, onSubmit, onCancel, isLoading 
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <form
+      onSubmit={handleSubmit}
+      className={isLegacy ? "legacy-form" : undefined}
+      style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
+    >
+      {isLegacy && (
+        <div className="legacy-form-note">
+          Legacy form (not connected to native EditTree UI).
+        </div>
+      )}
       {/* First Name */}
       <div>
         <label htmlFor="first-name" style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>

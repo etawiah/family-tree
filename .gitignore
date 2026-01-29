@@ -6,6 +6,9 @@ instructions
 .env.local
 .DS_Store
 *.log
+AUDIT_FINDINGS.md
+CORE_FUNCTIONALITY_AUDIT.md
+PEER_REVIEW.md
 
 # Cloudflare local development artifacts
 .wrangler
