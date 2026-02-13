@@ -1,0 +1,3 @@
+# Pages-only config (static site). Used by CI to deploy dist/ without loading Worker wrangler.toml.
+name = "family-tree"
+pages_build_output_dir = "dist"
