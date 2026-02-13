@@ -1,12 +1,17 @@
 /**
  * API base URL for the family-tree-app Worker.
- * Set VITE_API_URL in .env or Cloudflare Pages env to override.
- * Use VITE_API_URL="" when the app is behind the Worker gateway (same-origin API).
+ * - On localhost: use VITE_API_URL or workers.dev so dev works without the gate.
+ * - On custom domain / production: use same-origin ("") so the auth cookie is sent to the Worker gateway.
  */
-export const API_URL =
-  import.meta.env.VITE_API_URL !== undefined
-    ? import.meta.env.VITE_API_URL
-    : "https://family-tree-app.eugene-tawiah.workers.dev";
+const WORKER_DEV_ORIGIN = "https://family-tree-app.eugene-tawiah.workers.dev";
+function getApiBase() {
+  if (import.meta.env.VITE_API_URL !== undefined) return import.meta.env.VITE_API_URL;
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    return WORKER_DEV_ORIGIN;
+  }
+  return "";
+}
+export const API_URL = getApiBase();
 
 const R2_PHOTO_ORIGIN = "https://family-tree-photos.family-tree.tawiah.net";
 
