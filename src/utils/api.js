@@ -39,10 +39,21 @@ export function photoDisplayUrl(storedUrl) {
  * @returns {Promise<Array>} Tree array (family-chart format)
  */
 export async function getTree() {
-  const res = await fetch(`${API_URL}/api/tree`);
+  const url = `${API_URL}/api/tree`;
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:getTree-start',message:'getTree request',data:{API_URL,url},timestamp:Date.now(),hypothesisId:'H1,H3,H4,H5'})}).catch(()=>{});
+  // #endregion
+  const res = await fetch(url);
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:getTree-response',message:'getTree response',data:{status:res.status,ok:res.ok},timestamp:Date.now(),hypothesisId:'H1,H3,H4,H5'})}).catch(()=>{});
+  // #endregion
   if (!res.ok) throw new Error(`Failed to load tree (${res.status})`);
   const data = await res.json();
-  return Array.isArray(data) ? data : [];
+  const arr = Array.isArray(data) ? data : [];
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:getTree-ok',message:'getTree success',data:{dataLength:arr.length},timestamp:Date.now(),hypothesisId:'H1,H4'})}).catch(()=>{});
+  // #endregion
+  return arr;
 }
 
 /**

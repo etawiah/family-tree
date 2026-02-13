@@ -153,6 +153,15 @@ export default {
     const authGate =
       env.AUTH_SECRET && env.PASSWORD && env.TURNSTILE_SECRET_KEY && env.PAGES_ORIGIN;
 
+    // GET /auth/logout: clear session cookie and redirect to /
+    if (authGate && request.method === "GET" && url.pathname === "/auth/logout") {
+      const clearCookie = `${AUTH_COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+      return new Response(null, {
+        status: 302,
+        headers: { Location: "/", "Set-Cookie": clearCookie },
+      });
+    }
+
     // POST /auth/login: verify Turnstile + password, log, set cookie, redirect
     if (authGate && request.method === "POST" && url.pathname === "/auth/login") {
       try {

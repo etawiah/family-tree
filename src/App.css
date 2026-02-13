@@ -27,6 +27,16 @@
   font-size: 1.5rem;
 }
 
+.app-header-signout {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.app-header-signout:hover {
+  color: #fff;
+}
+
 .app-main {
   flex: 1;
   display: flex;
