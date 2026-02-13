@@ -70,13 +70,24 @@ export default function ImageUpload({
       };
       reader.onloadend = () => {
         const dataUrl = reader.result;
+        if (!dataUrl || typeof dataUrl !== 'string') {
+          setStatus("Failed to convert image to data URL.");
+          return;
+        }
         setPreview(dataUrl);
         setStatus("Photo ready.");
         setProgress(100);
-        onUploadComplete?.(dataUrl);
+        // Call callback with the data URL
+        if (onUploadComplete) {
+          onUploadComplete(dataUrl);
+        }
       };
-      reader.onerror = () => {
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
         setStatus("Failed to process image.");
+      };
+      reader.onabort = () => {
+        setStatus("Image processing cancelled.");
       };
       reader.readAsDataURL(compressed);
     },
@@ -107,11 +118,10 @@ export default function ImageUpload({
           <span style={{ fontSize: "0.875rem", color: "#64748b" }}>(Optional)</span>
         </div>
 
-        {/* Hidden File Input */}
+        {/* Hidden File Input - no name attribute to avoid form submission conflict */}
         <input
           ref={fileInputRef}
           id={inputId}
-          name={inputName}
           type="file"
           accept="image/*"
           onChange={handleInputChange}

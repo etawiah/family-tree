@@ -88,43 +88,59 @@ export default function FamilyTree() {
       .setCanDelete(() => true)
       .setOnFormCreation(({ cont, form_creator }) => {
         // Customize the photo field to use ImageUpload component
-        const photoInput = cont.querySelector('input[name="photo"]');
-        if (photoInput) {
-          const fieldContainer = photoInput.closest('.input-field') || photoInput.parentElement;
-          if (fieldContainer) {
-            // Create a container for the ImageUpload component
-            const uploadContainer = document.createElement('div');
-            uploadContainer.style.marginTop = '0.5rem';
-            
-            // Get current photo value
-            const currentPhoto = photoInput.value || '';
-            
-            // Create React root and render ImageUpload
-            const root = createRoot(uploadContainer);
-            root.render(
-              <ImageUpload
-                label="Photo"
-                initialUrl={currentPhoto}
-                inputId="photo-upload"
-                inputName="photo"
-                onUploadComplete={(dataUrl) => {
-                  // Update the hidden input value
-                  photoInput.value = dataUrl;
-                  // Trigger change event so family-chart picks it up
-                  photoInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }}
-                onRemove={() => {
-                  photoInput.value = '';
-                  photoInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }}
-              />
-            );
-            
-            // Replace the text input with our upload component
-            photoInput.style.display = 'none';
-            fieldContainer.appendChild(uploadContainer);
+        // Wait a bit for family-chart to finish creating the form
+        setTimeout(() => {
+          const photoInput = cont.querySelector('input[name="photo"]');
+          if (photoInput && photoInput.type === 'text') {
+            const fieldContainer = photoInput.closest('.input-field') || photoInput.parentElement;
+            if (fieldContainer) {
+              // Get current photo value
+              const currentPhoto = photoInput.value || '';
+              
+              // Create a container for the ImageUpload component
+              const uploadContainer = document.createElement('div');
+              uploadContainer.style.marginTop = '0.5rem';
+              
+              // Create React root and render ImageUpload
+              const root = createRoot(uploadContainer);
+              root.render(
+                <ImageUpload
+                  label="Photo"
+                  initialUrl={currentPhoto}
+                  inputId="photo-upload"
+                  onUploadComplete={(dataUrl) => {
+                    // Ensure we have a valid data URL string
+                    if (!dataUrl || typeof dataUrl !== 'string') {
+                      console.error('Invalid data URL received:', dataUrl);
+                      return;
+                    }
+                    // Update the text input value with data URL
+                    photoInput.value = dataUrl;
+                    // Trigger input event (more reliable than change for programmatic updates)
+                    photoInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    photoInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    // Also trigger blur to ensure family-chart processes it
+                    photoInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                    // Force form to recognize the change
+                    const form = photoInput.closest('form');
+                    if (form) {
+                      form.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                  }}
+                  onRemove={() => {
+                    photoInput.value = '';
+                    photoInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    photoInput.dispatchEvent(new Event('change', { bubbles: true }));
+                  }}
+                />
+              );
+              
+              // Hide the text input and add our upload component
+              photoInput.style.display = 'none';
+              fieldContainer.appendChild(uploadContainer);
+            }
           }
-        }
+        }, 100);
       })
       .setOnChange(() => {
         const updated = editTree.exportData();
