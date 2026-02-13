@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "worker:dev": "wrangler dev",
-    "worker:deploy": "wrangler deploy"
+    "worker:deploy": "wrangler deploy",
+    "d1:setup": "wrangler d1 execute family-tree-db --remote --file=./scripts/d1-schema.sql"
   },
   "dependencies": {
     "browser-image-compression": "^2.0.2",

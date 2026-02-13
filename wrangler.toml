@@ -2,6 +2,12 @@ name = "family-tree-app"
 main = "worker.js"
 compatibility_date = "2024-01-25"
 
+# D1 database for tree data
+[[d1_databases]]
+binding = "DB"
+database_name = "family-tree-db"
+database_id = "65e3242b-ea09-4ee1-9aa7-624f8f56a9c2"
+
 # R2 Bucket for photo storage
 [[r2_buckets]]
 binding = "BUCKET"

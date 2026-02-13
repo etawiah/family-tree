@@ -26,6 +26,33 @@ export function photoDisplayUrl(storedUrl) {
  * @param {(percent: number) => void} onProgress - Optional progress callback (0-100)
  * @returns {Promise<string>} Public URL of the uploaded photo
  */
+/**
+ * Load the family tree from the API (D1).
+ * @returns {Promise<Array>} Tree array (family-chart format)
+ */
+export async function getTree() {
+  const res = await fetch(`${API_URL}/api/tree`);
+  if (!res.ok) throw new Error(`Failed to load tree (${res.status})`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Save the family tree to the API (D1).
+ * @param {Array} tree - Tree array (family-chart format)
+ */
+export async function saveTree(tree) {
+  const res = await fetch(`${API_URL}/api/tree`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(tree),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Failed to save tree (${res.status})`);
+  }
+}
+
 export async function uploadPhoto(file, onProgress) {
   const form = new FormData();
   form.append("file", file);

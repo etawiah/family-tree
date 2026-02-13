@@ -1,11 +1,12 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import * as f3 from "family-chart";
 import "family-chart/styles/family-chart.css";
 import ImageUpload from "./ImageUpload.jsx";
-import { API_URL, photoDisplayUrl } from "../utils/api.js";
+import { API_URL, getTree, photoDisplayUrl, saveTree } from "../utils/api.js";
 
 const STORAGE_KEY = "family-tree-app-data";
+const SAVE_DEBOUNCE_MS = 400;
 
 const defaultData = [
   {
@@ -26,7 +27,7 @@ const defaultData = [
   },
 ];
 
-function loadData() {
+function getLocalTree() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -34,33 +35,55 @@ function loadData() {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (_) {}
-  return defaultData;
-}
-
-function saveData(data) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (_) {}
+  return [];
 }
 
 export default function FamilyTree() {
   const containerRef = useRef(null);
+  const [treeData, setTreeData] = useState(null);
+  const saveTimeoutRef = useRef(null);
 
+  // Load tree from API; if empty and localStorage has data, upload it (one-time migration)
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const data = loadData();
-    // Rewrite R2 photo URLs to Worker URLs for display (mutate in place so chart keeps same object references and click-to-open works)
-    data.forEach((node) => {
-      if (node.data && typeof node.data.photo === "string" && node.data.photo) {
-        const rewritten = photoDisplayUrl(node.data.photo);
-        if (rewritten) node.data.photo = rewritten;
+    let cancelled = false;
+    (async () => {
+      try {
+        let data = await getTree();
+        if (!cancelled && data.length === 0) {
+          const local = getLocalTree();
+          if (local.length > 0) {
+            await saveTree(local);
+            data = local;
+            try {
+              localStorage.removeItem(STORAGE_KEY);
+            } catch (_) {}
+          }
+        }
+        if (!cancelled) {
+          const final = data.length > 0 ? data : defaultData;
+          final.forEach((node) => {
+            if (node.data && typeof node.data.photo === "string" && node.data.photo) {
+              const rewritten = photoDisplayUrl(node.data.photo);
+              if (rewritten) node.data.photo = rewritten;
+            }
+          });
+          setTreeData(final);
+        }
+      } catch (_) {
+        if (!cancelled) setTreeData(defaultData);
       }
-    });
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // When tree data is ready, create chart (data layer only; chart behavior unchanged)
+  useEffect(() => {
+    if (!containerRef.current || treeData === null) return;
+
     const container = containerRef.current;
     container.innerHTML = "";
 
-    const chart = f3.createChart(container, data)
+    const chart = f3.createChart(container, treeData)
       .setCardXSpacing(250)
       .setCardYSpacing(150)
       .setTransitionTime(1000)
@@ -152,16 +175,40 @@ export default function FamilyTree() {
       })
       .setOnChange(() => {
         const updated = editTree.exportData();
-        saveData(updated);
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => {
+          saveTree(updated).catch(() => {});
+          saveTimeoutRef.current = null;
+        }, SAVE_DEBOUNCE_MS);
       });
 
     chart.updateTree({ initial: true });
     editTree.open(chart.getMainDatum());
 
     return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, []);
+  }, [treeData]);
+
+  if (treeData === null) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "900px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgb(33, 33, 33)",
+          color: "#fff",
+        }}
+      >
+        Loading…
+      </div>
+    );
+  }
 
   return (
     <div

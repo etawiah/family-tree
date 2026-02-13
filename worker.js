@@ -40,7 +40,7 @@ function corsHeaders(origin, allowOrigin) {
   const o = allowOrigin || origin || "*";
   return {
     "Access-Control-Allow-Origin": o,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
   };
@@ -66,6 +66,59 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    // Tree API (D1): GET returns tree JSON, PUT stores tree JSON
+    if (url.pathname === "/api/tree") {
+      if (request.method === "GET") {
+        try {
+          const stmt = env.DB.prepare("SELECT value FROM tree WHERE key = ?").bind("data");
+          const row = await stmt.first();
+          const value = row ? row.value : "[]";
+          let tree;
+          try {
+            tree = JSON.parse(value);
+          } catch {
+            tree = [];
+          }
+          if (!Array.isArray(tree)) tree = [];
+          return new Response(JSON.stringify(tree), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowOrigin) },
+          });
+        } catch (err) {
+          console.error("GET /api/tree error:", err);
+          return new Response(JSON.stringify({ error: "Failed to load tree" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowOrigin) },
+          });
+        }
+      }
+      if (request.method === "PUT") {
+        try {
+          const body = await request.json();
+          if (!Array.isArray(body)) {
+            return new Response(JSON.stringify({ error: "Body must be an array" }), {
+              status: 400,
+              headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowOrigin) },
+            });
+          }
+          const value = JSON.stringify(body);
+          await env.DB.prepare(
+            "INSERT INTO tree (key, value, updated_at) VALUES ('data', ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+          ).bind(value).run();
+          return new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowOrigin) },
+          });
+        } catch (err) {
+          console.error("PUT /api/tree error:", err);
+          return new Response(JSON.stringify({ error: "Failed to save tree" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowOrigin) },
+          });
+        }
+      }
+    }
 
     // Serve photo from R2 (bucket is private; this makes images load without R2 public access)
     const photoMatch = url.pathname.match(/^\/api\/photo\/(.+)$/);
