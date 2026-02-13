@@ -32,33 +32,21 @@ body {
   height: 100vh;
 }
 
-/* Family-chart card: Notes & Bio in view mode — same look as edit (label + 5-row scrollable area) */
-.f3 .card-notes-wrap {
-  margin-top: 0.5rem;
-}
-.f3 .card-notes-label {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-  font-size: 0.9em;
-}
-.f3 .card-notes-view {
+/* Sidebar view mode: Notes & Bio as multi-line, textarea-like block */
+.f3 .f3-notes-value-view {
+  display: block;
   min-height: 5em;
-  max-height: 5em;
+  max-height: 10em;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
   padding: 0.5rem;
-  border: 1px solid #ccc;
+  margin-top: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.25rem;
   font-family: inherit;
   font-size: inherit;
   background: rgba(255, 255, 255, 0.06);
-}
-@media (prefers-color-scheme: light) {
-  .f3 .card-notes-view {
-    background: #fff;
-    border-color: #ccc;
-  }
 }
 
 h1 {
