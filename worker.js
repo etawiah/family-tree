@@ -67,6 +67,33 @@ export default {
 
     const url = new URL(request.url);
 
+    // Serve photo from R2 (bucket is private; this makes images load without R2 public access)
+    const photoMatch = url.pathname.match(/^\/api\/photo\/(.+)$/);
+    if (request.method === "GET" && photoMatch) {
+      const filename = photoMatch[1].replace(/\.\./g, "").split("/")[0];
+      if (!filename) {
+        return new Response("Not Found", { status: 404, headers: { ...corsHeaders(origin, allowOrigin) } });
+      }
+      try {
+        const object = await env.BUCKET.get(filename);
+        if (!object) {
+          return new Response("Not Found", { status: 404, headers: { ...corsHeaders(origin, allowOrigin) } });
+        }
+        const contentType = object.httpMetadata?.contentType || "image/jpeg";
+        return new Response(object.body, {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Cache-Control": "public, max-age=31536000",
+            ...corsHeaders(origin, allowOrigin),
+          },
+        });
+      } catch (err) {
+        console.error("Photo get error:", err);
+        return new Response("Error", { status: 500, headers: { ...corsHeaders(origin, allowOrigin) } });
+      }
+    }
+
     if (request.method === "POST" && (url.pathname === "/api/upload" || url.pathname === "/upload")) {
       try {
         const contentType = request.headers.get("Content-Type") || "";
@@ -106,8 +133,9 @@ export default {
           httpMetadata: { contentType: detectedType },
         });
 
-        const baseUrl = (env.R2_PUBLIC_URL || "").replace(/\/$/, "");
-        const publicUrl = baseUrl ? `${baseUrl}/${filename}` : `https://family-tree-photos.family-tree.tawiah.net/${filename}`;
+        // Return Worker URL so images load without requiring R2 public access
+        const base = new URL(request.url).origin;
+        const publicUrl = `${base}/api/photo/${filename}`;
 
         return new Response(
           JSON.stringify({ url: publicUrl, filename }),

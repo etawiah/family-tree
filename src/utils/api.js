@@ -5,6 +5,21 @@
 export const API_URL =
   import.meta.env.VITE_API_URL || "https://family-tree-app.eugene-tawiah.workers.dev";
 
+const R2_PHOTO_ORIGIN = "https://family-tree-photos.family-tree.tawiah.net";
+
+/**
+ * Photos are served by the Worker at /api/photo/:filename (R2 bucket is private).
+ * Rewrite any stored R2 public URL to the Worker URL so existing uploads still load.
+ */
+export function photoDisplayUrl(storedUrl) {
+  if (!storedUrl || typeof storedUrl !== "string") return storedUrl;
+  if (storedUrl.startsWith(R2_PHOTO_ORIGIN + "/")) {
+    const filename = storedUrl.slice(R2_PHOTO_ORIGIN.length + 1).split("?")[0];
+    if (filename) return `${API_URL}/api/photo/${filename}`;
+  }
+  return storedUrl;
+}
+
 /**
  * Upload a photo to the Worker; returns the public URL.
  * @param {File} file - Image file (after compression)

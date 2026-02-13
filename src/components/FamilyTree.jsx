@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import * as f3 from "family-chart";
 import "family-chart/styles/family-chart.css";
 import ImageUpload from "./ImageUpload.jsx";
-import { API_URL } from "../utils/api.js";
+import { API_URL, photoDisplayUrl } from "../utils/api.js";
 
 const STORAGE_KEY = "family-tree-app-data";
 
@@ -49,7 +49,11 @@ export default function FamilyTree() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let data = loadData();
+    const raw = loadData();
+    const data = raw.map((node) => ({
+      ...node,
+      data: { ...node.data, photo: photoDisplayUrl(node.data?.photo || "") || node.data?.photo },
+    }));
     const container = containerRef.current;
     container.innerHTML = "";
 
@@ -96,8 +100,9 @@ export default function FamilyTree() {
             const fieldContainer = photoInput.closest('.input-field') || photoInput.parentElement;
             if (fieldContainer) {
               // Get current photo value
-              const currentPhoto = photoInput.value || '';
-              
+              const currentPhoto = photoInput.value || "";
+              const displayUrl = photoDisplayUrl(currentPhoto);
+
               // Create a container for the ImageUpload component
               const uploadContainer = document.createElement('div');
               uploadContainer.style.marginTop = '0.5rem';
@@ -107,7 +112,7 @@ export default function FamilyTree() {
               root.render(
                 <ImageUpload
                   label="Photo"
-                  initialUrl={currentPhoto}
+                  initialUrl={displayUrl || currentPhoto}
                   inputId="photo-upload"
                   apiUrl={API_URL}
                   onUploadComplete={(urlOrDataUrl) => {
