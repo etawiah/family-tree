@@ -150,8 +150,8 @@ export default {
     }
 
     const url = new URL(request.url);
-    const authGate =
-      env.AUTH_SECRET && env.PASSWORD && env.TURNSTILE_SECRET_KEY && env.PAGES_ORIGIN;
+    // Auth gate disabled until domain is moved from Pages to Worker. Re-enable when ready.
+    const authGate = false; // env.AUTH_SECRET && env.PASSWORD && env.TURNSTILE_SECRET_KEY && env.PAGES_ORIGIN;
 
     // GET /auth/logout: clear session cookie and redirect to /
     if (authGate && request.method === "GET" && url.pathname === "/auth/logout") {

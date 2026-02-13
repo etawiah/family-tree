@@ -1,17 +1,11 @@
 /**
  * API base URL for the family-tree-app Worker.
- * - On localhost: use VITE_API_URL or workers.dev so dev works without the gate.
- * - On custom domain / production: use same-origin ("") so the auth cookie is sent to the Worker gateway.
+ * Set VITE_API_URL in .env or Cloudflare Pages env to override.
  */
-const WORKER_DEV_ORIGIN = "https://family-tree-app.eugene-tawiah.workers.dev";
-function getApiBase() {
-  if (import.meta.env.VITE_API_URL !== undefined) return import.meta.env.VITE_API_URL;
-  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
-    return WORKER_DEV_ORIGIN;
-  }
-  return "";
-}
-export const API_URL = getApiBase();
+export const API_URL =
+  import.meta.env.VITE_API_URL !== undefined
+    ? import.meta.env.VITE_API_URL
+    : "https://family-tree-app.eugene-tawiah.workers.dev";
 
 const R2_PHOTO_ORIGIN = "https://family-tree-photos.family-tree.tawiah.net";
 
@@ -39,25 +33,10 @@ export function photoDisplayUrl(storedUrl) {
  * @returns {Promise<Array>} Tree array (family-chart format)
  */
 export async function getTree() {
-  const url = `${API_URL}/api/tree`;
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:getTree-start',message:'getTree request',data:{API_URL,url},timestamp:Date.now(),hypothesisId:'H1,H3,H4,H5'})}).catch(()=>{});
-  // #endregion
-  const res = await fetch(url);
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:getTree-response',message:'getTree response',data:{status:res.status,ok:res.ok},timestamp:Date.now(),hypothesisId:'H1,H3,H4,H5'})}).catch(()=>{});
-  // #endregion
+  const res = await fetch(`${API_URL}/api/tree`);
   if (!res.ok) throw new Error(`Failed to load tree (${res.status})`);
-  const contentType = (res.headers.get("Content-Type") || "").toLowerCase();
-  if (contentType.includes("text/html")) {
-    throw new Error("Gateway returned HTML — use the app URL that points to the Worker and sign in.");
-  }
   const data = await res.json();
-  const arr = Array.isArray(data) ? data : [];
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:getTree-ok',message:'getTree success',data:{dataLength:arr.length},timestamp:Date.now(),hypothesisId:'H1,H4'})}).catch(()=>{});
-  // #endregion
-  return arr;
+  return Array.isArray(data) ? data : [];
 }
 
 /**
