@@ -1,6 +1,8 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
+import { createRoot } from "react-dom/client";
 import * as f3 from "family-chart";
 import "family-chart/styles/family-chart.css";
+import ImageUpload from "./ImageUpload.jsx";
 
 const STORAGE_KEY = "family-tree-app-data";
 
@@ -10,6 +12,7 @@ const defaultData = [
     data: {
       gender: "M",
       "first name": "Eugene",
+      "middle name": "",
       "last name": "Tawiah",
       birthday: "1985",
       deathday: "",
@@ -58,7 +61,7 @@ export default function FamilyTree() {
     const card = chart
       .setCardHtml()
       .setCardDisplay([
-        ["first name", "last name"],
+        ["first name", "middle name", "last name"],
         ["location"],
         ["birthday", "deathday"],
       ])
@@ -68,6 +71,7 @@ export default function FamilyTree() {
       .editTree()
       .setFields([
         "first name",
+        "middle name",
         "last name",
         "gender",
         "birthday",
@@ -82,6 +86,46 @@ export default function FamilyTree() {
       .setCanEdit(() => true)
       .setCanAdd(() => true)
       .setCanDelete(() => true)
+      .setOnFormCreation(({ cont, form_creator }) => {
+        // Customize the photo field to use ImageUpload component
+        const photoInput = cont.querySelector('input[name="photo"]');
+        if (photoInput) {
+          const fieldContainer = photoInput.closest('.input-field') || photoInput.parentElement;
+          if (fieldContainer) {
+            // Create a container for the ImageUpload component
+            const uploadContainer = document.createElement('div');
+            uploadContainer.style.marginTop = '0.5rem';
+            
+            // Get current photo value
+            const currentPhoto = photoInput.value || '';
+            
+            // Create React root and render ImageUpload
+            const root = createRoot(uploadContainer);
+            root.render(
+              <ImageUpload
+                label="Photo"
+                initialUrl={currentPhoto}
+                inputId="photo-upload"
+                inputName="photo"
+                onUploadComplete={(dataUrl) => {
+                  // Update the hidden input value
+                  photoInput.value = dataUrl;
+                  // Trigger change event so family-chart picks it up
+                  photoInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }}
+                onRemove={() => {
+                  photoInput.value = '';
+                  photoInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }}
+              />
+            );
+            
+            // Replace the text input with our upload component
+            photoInput.style.display = 'none';
+            fieldContainer.appendChild(uploadContainer);
+          }
+        }
+      })
       .setOnChange(() => {
         const updated = editTree.exportData();
         saveData(updated);
