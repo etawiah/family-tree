@@ -9,7 +9,7 @@ Minimal family tree visualization built with [family-chart](https://github.com/d
 - Add relatives (Father, Mother, Spouse, Son, Daughter)
 - Remove relatives
 - Link to existing person
-- Persistence via localStorage (no backend)
+
 
 ## Run locally
 
@@ -30,4 +30,4 @@ Output: `dist/` (for Cloudflare Pages)
 
 Push to `main` to trigger deployment to Cloudflare Pages via GitHub Actions.
 
-Public URL: https://family-tree.pages.dev (or custom domain if configured)
+Public URL: https://family-tree.tawiah.net
