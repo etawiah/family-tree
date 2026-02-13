@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import * as f3 from "family-chart";
 import "family-chart/styles/family-chart.css";
 import ImageUpload from "./ImageUpload.jsx";
+import { API_URL } from "../utils/api.js";
 
 const STORAGE_KEY = "family-tree-app-data";
 
@@ -108,14 +109,13 @@ export default function FamilyTree() {
                   label="Photo"
                   initialUrl={currentPhoto}
                   inputId="photo-upload"
-                  onUploadComplete={(dataUrl) => {
-                    // Ensure we have a valid data URL string
-                    if (!dataUrl || typeof dataUrl !== 'string') {
-                      console.error('Invalid data URL received:', dataUrl);
+                  apiUrl={API_URL}
+                  onUploadComplete={(urlOrDataUrl) => {
+                    if (!urlOrDataUrl || typeof urlOrDataUrl !== "string") {
+                      console.error("Invalid photo value received:", urlOrDataUrl);
                       return;
                     }
-                    // Update the text input value with data URL
-                    photoInput.value = dataUrl;
+                    photoInput.value = urlOrDataUrl;
                     // Trigger input event (more reliable than change for programmatic updates)
                     photoInput.dispatchEvent(new Event('input', { bubbles: true }));
                     photoInput.dispatchEvent(new Event('change', { bubbles: true }));

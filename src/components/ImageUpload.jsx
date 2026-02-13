@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import imageCompression from "browser-image-compression";
+import { uploadPhoto } from "../utils/api.js";
 
 /**
- * Image upload component with compression for localStorage storage.
- * Converts uploaded images to base64 data URLs for storage.
+ * Image upload: when apiUrl is set, uploads to Worker (R2); otherwise converts to base64 (localStorage).
+ * Supports both existing base64 and http(s) URLs for preview.
  */
 export default function ImageUpload({
   label = "Photo",
@@ -11,7 +12,7 @@ export default function ImageUpload({
   onUploadComplete,
   onRemove,
   inputId,
-  inputName,
+  apiUrl,
 }) {
   const [preview, setPreview] = useState(initialUrl);
   const [progress, setProgress] = useState(0);
@@ -27,14 +28,12 @@ export default function ImageUpload({
         return;
       }
 
-      // Validate file type
       const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
       if (!validTypes.includes(file.type)) {
         setStatus("Invalid file type. Please use JPEG, PNG, or WebP.");
         return;
       }
 
-      // Validate file size (max 10MB before compression)
       const maxSizeMB = 10;
       const fileSizeMB = file.size / (1024 * 1024);
       if (fileSizeMB > maxSizeMB) {
@@ -45,7 +44,6 @@ export default function ImageUpload({
       setStatus("Compressing image...");
       setProgress(10);
 
-      // Client-side compression reduces storage size
       let compressed;
       try {
         compressed = await imageCompression(file, {
@@ -60,38 +58,43 @@ export default function ImageUpload({
         return;
       }
 
-      // Convert to base64 data URL for localStorage storage
+      if (apiUrl) {
+        setStatus("Uploading...");
+        try {
+          const url = await uploadPhoto(compressed, (p) => setProgress(50 + Math.round((p * 50) / 100)));
+          setPreview(url);
+          setStatus("Photo uploaded.");
+          setProgress(100);
+          if (onUploadComplete) onUploadComplete(url);
+        } catch (err) {
+          setStatus(err.message || "Upload failed.");
+          setProgress(0);
+        }
+        return;
+      }
+
       const reader = new FileReader();
       reader.onprogress = (e) => {
         if (e.lengthComputable) {
-          const percent = 50 + Math.round((e.loaded / e.total) * 50);
-          setProgress(percent);
+          setProgress(50 + Math.round((e.loaded / e.total) * 50));
         }
       };
       reader.onloadend = () => {
         const dataUrl = reader.result;
-        if (!dataUrl || typeof dataUrl !== 'string') {
+        if (!dataUrl || typeof dataUrl !== "string") {
           setStatus("Failed to convert image to data URL.");
           return;
         }
         setPreview(dataUrl);
         setStatus("Photo ready.");
         setProgress(100);
-        // Call callback with the data URL
-        if (onUploadComplete) {
-          onUploadComplete(dataUrl);
-        }
+        if (onUploadComplete) onUploadComplete(dataUrl);
       };
-      reader.onerror = (error) => {
-        console.error('FileReader error:', error);
-        setStatus("Failed to process image.");
-      };
-      reader.onabort = () => {
-        setStatus("Image processing cancelled.");
-      };
+      reader.onerror = () => setStatus("Failed to process image.");
+      reader.onabort = () => setStatus("Image processing cancelled.");
       reader.readAsDataURL(compressed);
     },
-    [onUploadComplete]
+    [onUploadComplete, apiUrl]
   );
 
   const handleInputChange = async (event) => {
@@ -224,13 +227,13 @@ export default function ImageUpload({
               backgroundColor:
                 status.includes("failed") || status.includes("Invalid")
                   ? "#fee2e2"
-                  : status.includes("ready")
+                  : status.includes("ready") || status.includes("uploaded")
                     ? "#dcfce7"
                     : "#fef3c7",
               color:
                 status.includes("failed") || status.includes("Invalid")
                   ? "#dc2626"
-                  : status.includes("ready")
+                  : status.includes("ready") || status.includes("uploaded")
                     ? "#16a34a"
                     : "#92400e",
             }}

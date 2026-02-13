@@ -1,0 +1,12 @@
+name = "family-tree-app"
+main = "worker.js"
+compatibility_date = "2024-01-25"
+
+# R2 Bucket for photo storage
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "family-tree-photos"
+
+# CORS allowed origins (Pages app + local dev)
+[vars]
+CORS_ORIGINS = "https://family-tree.tawiah.net,https://family-tree-a6g.pages.dev,https://family-tree-app.pages.dev,https://family-tree-app.eugene-tawiah.workers.dev,http://localhost:5173,http://localhost:5174"
