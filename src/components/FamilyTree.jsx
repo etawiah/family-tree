@@ -81,12 +81,16 @@ export default function FamilyTree() {
         }
       } catch (err) {
         if (!cancelled) {
-          const isUnauthorized = err?.message?.includes("401") || err?.message?.toLowerCase().includes("unauthorized");
+          const msg = err?.message || "";
+          const isUnauthorized = msg.includes("401") || msg.toLowerCase().includes("unauthorized");
+          const isWrongGateway = msg.includes("HTML") || msg.includes("Worker");
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FamilyTree.jsx:getTree-catch',message:'getTree failed',data:{errMessage:err?.message,isUnauthorized},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
+          fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FamilyTree.jsx:getTree-catch',message:'getTree failed',data:{errMessage:msg,isUnauthorized,isWrongGateway},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
           // #endregion
           if (isUnauthorized) {
             setLoadError("unauthorized");
+          } else if (isWrongGateway) {
+            setLoadError("wrong_gateway");
           } else {
             setTreeData(defaultData);
           }
@@ -350,6 +354,48 @@ export default function FamilyTree() {
           }}
         >
           Go to sign in
+        </a>
+      </div>
+    );
+  }
+
+  if (loadError === "wrong_gateway") {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "400px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "1rem",
+          background: "rgb(33, 33, 33)",
+          color: "#fff",
+          padding: "2rem",
+          textAlign: "center",
+        }}
+      >
+        <p style={{ margin: 0, fontSize: "1.1rem" }}>
+          This address is not going through the login. The domain may be pointing to Pages instead of the Worker.
+        </p>
+        <p style={{ margin: 0, fontSize: "0.95rem", color: "#94a3b8" }}>
+          In Cloudflare: remove the custom domain from the Pages project and attach it only to the family-tree-app Worker (Settings → Triggers → Custom domains).
+        </p>
+        <a
+          href={APP_URL}
+          style={{
+            display: "inline-block",
+            padding: "0.75rem 1.5rem",
+            background: "#6366f1",
+            color: "#fff",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontWeight: 600,
+          }}
+        >
+          Open app URL
         </a>
       </div>
     );

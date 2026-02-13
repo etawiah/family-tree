@@ -48,6 +48,10 @@ export async function getTree() {
   fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.js:getTree-response',message:'getTree response',data:{status:res.status,ok:res.ok},timestamp:Date.now(),hypothesisId:'H1,H3,H4,H5'})}).catch(()=>{});
   // #endregion
   if (!res.ok) throw new Error(`Failed to load tree (${res.status})`);
+  const contentType = (res.headers.get("Content-Type") || "").toLowerCase();
+  if (contentType.includes("text/html")) {
+    throw new Error("Gateway returned HTML — use the app URL that points to the Worker and sign in.");
+  }
   const data = await res.json();
   const arr = Array.isArray(data) ? data : [];
   // #region agent log

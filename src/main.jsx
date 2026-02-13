@@ -20,6 +20,9 @@ if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' &&
 }
 
 if (!shouldRedirect) {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/53e3d4a7-e895-4c1a-a9aa-dfd44319e82e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.jsx:app-render',message:'SPA rendering',data:{hostname:typeof window!=='undefined'?window.location.hostname:'ssr',shouldRedirect},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <App />
