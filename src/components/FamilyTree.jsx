@@ -171,6 +171,67 @@ export default function FamilyTree() {
               fieldContainer.appendChild(uploadContainer);
             }
           }
+
+          // Customize the Notes field: replace text input with 5-row textarea, change label to "Notes & Bio"
+          const notesInput = cont.querySelector('input[name="notes"]');
+          if (notesInput && notesInput.type === 'text') {
+            const notesFieldContainer = notesInput.closest('.input-field') || notesInput.parentElement;
+            if (notesFieldContainer) {
+              const currentNotes = notesInput.value || '';
+              
+              // Update label text to "Notes & Bio"
+              const label = notesFieldContainer.querySelector('label[for="notes"], label');
+              if (label) {
+                label.textContent = 'Notes & Bio';
+              }
+
+              // Create textarea to replace the input
+              const textarea = document.createElement('textarea');
+              textarea.name = 'notes';
+              textarea.id = notesInput.id || 'notes';
+              textarea.value = currentNotes;
+              textarea.rows = 5;
+              textarea.style.width = '100%';
+              textarea.style.minHeight = '5em';
+              textarea.style.resize = 'vertical';
+              textarea.style.overflowY = 'auto';
+              textarea.style.padding = '0.5rem';
+              textarea.style.fontFamily = 'inherit';
+              textarea.style.fontSize = 'inherit';
+              textarea.style.border = notesInput.style.border || '1px solid #ccc';
+              textarea.style.borderRadius = '0.25rem';
+              
+              // Copy any other attributes that might be needed
+              if (notesInput.required) textarea.required = true;
+              if (notesInput.placeholder) textarea.placeholder = notesInput.placeholder;
+
+              // Event handlers to ensure family-chart recognizes changes
+              textarea.addEventListener('input', (e) => {
+                e.stopPropagation();
+                const form = textarea.closest('form');
+                if (form) {
+                  form.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+              });
+              textarea.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const form = textarea.closest('form');
+                if (form) {
+                  form.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+              });
+              textarea.addEventListener('blur', (e) => {
+                e.stopPropagation();
+                const form = textarea.closest('form');
+                if (form) {
+                  form.dispatchEvent(new Event('blur', { bubbles: true }));
+                }
+              });
+
+              // Replace the input with textarea
+              notesInput.parentNode.replaceChild(textarea, notesInput);
+            }
+          }
         }, 100);
       })
       .setOnChange(() => {
