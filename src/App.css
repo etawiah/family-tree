@@ -7,10 +7,19 @@
 
 .app-header {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   padding: 1rem 2rem;
   background: #1a1a1a;
   color: #fff;
   border-bottom: 1px solid #333;
+}
+
+.app-header-logo {
+  height: 2rem;
+  width: auto;
+  display: block;
 }
 
 .app-header h1 {

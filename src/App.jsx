@@ -5,7 +5,8 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Family Tree</h1>
+        <img src="/logo-fist.png" alt="" className="app-header-logo" />
+        <h1>Family Tree (Tawiah – Ocansey)</h1>
       </header>
       <main className="app-main">
         <FamilyTree />
