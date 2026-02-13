@@ -49,11 +49,14 @@ export default function FamilyTree() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const raw = loadData();
-    const data = raw.map((node) => ({
-      ...node,
-      data: { ...node.data, photo: photoDisplayUrl(node.data?.photo || "") || node.data?.photo },
-    }));
+    const data = loadData();
+    // Rewrite R2 photo URLs to Worker URLs for display (mutate in place so chart keeps same object references and click-to-open works)
+    data.forEach((node) => {
+      if (node.data && typeof node.data.photo === "string" && node.data.photo) {
+        const rewritten = photoDisplayUrl(node.data.photo);
+        if (rewritten) node.data.photo = rewritten;
+      }
+    });
     const container = containerRef.current;
     container.innerHTML = "";
 
