@@ -41,6 +41,9 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+        env:
+          # Set repo variable VITE_API_URL to "" (empty) when using the password gate so the app uses same-origin API.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
 
       - name: Verify build output
         run: |

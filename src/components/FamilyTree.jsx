@@ -96,7 +96,54 @@ export default function FamilyTree() {
         ["location"],
         ["birthday", "deathday"],
       ])
-      .setCardImageField("photo");
+      .setCardImageField("photo")
+      .setCardInnerHtmlCreator((d) => {
+        const data = d.data?.data ?? {};
+        const isAdd = d.data?.to_add;
+        const isUnknown = d.data?.unknown;
+        const isNewRel = d.data?._new_rel_data;
+        const photo = data.photo;
+        const name = [data["first name"], data["middle name"], data["last name"]].filter(Boolean).join(" ") || "";
+        const location = data.location ?? "";
+        const birthDeath = [data.birthday, data.deathday].filter(Boolean).join(" – ") || "";
+        const notes = (data.notes ?? "").toString();
+        const escapedNotes = notes
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+        if (isNewRel) {
+          const rel = d.data._new_rel_data;
+          const attrs = [`data-rel-type="${(rel.rel_type || "").replace(/"/g, "&quot;")}"`];
+          if (["son", "daughter"].includes(rel.rel_type))
+            attrs.push(`data-other-parent-id="${(rel.other_parent_id || "").replace(/"/g, "&quot;")}"`);
+          return `<div class="card-inner card-image-rect"><div class="card-label"><div ${attrs.join(" ")}>${(rel.label || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div></div></div>`;
+        }
+        if (isAdd) {
+          return `<div class="card-inner card-image-rect"><div class="card-label"><div>ADD</div></div></div>`;
+        }
+        if (isUnknown) {
+          return `<div class="card-inner card-image-rect"><div class="card-label"><div>UNKNOWN</div></div></div>`;
+        }
+        const imgHtml = photo
+          ? `<img src="${photo.replace(/"/g, "&quot;")}" style="position: relative;">`
+          : `<div class="person-icon" style="position: relative;"></div>`;
+        const duplicateTag = d.duplicate ? `<div class="f3-card-duplicate-tag">x${d.duplicate}</div>` : "";
+        return `
+<div class="card-inner card-image-rect">
+  ${imgHtml}
+  <div class="card-label">
+    <div>${name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+    <div>${(location || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+    <div>${(birthDeath || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+    <div class="card-notes-wrap">
+      <div class="card-notes-label">Notes &amp; Bio</div>
+      <div class="card-notes-view">${escapedNotes || "\u00A0"}</div>
+    </div>
+  </div>
+  ${duplicateTag}
+</div>`;
+      });
 
     const editTree = chart
       .editTree()
@@ -244,7 +291,6 @@ export default function FamilyTree() {
       });
 
     chart.updateTree({ initial: true });
-    editTree.open(chart.getMainDatum());
 
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);

@@ -1,9 +1,12 @@
 /**
  * API base URL for the family-tree-app Worker.
  * Set VITE_API_URL in .env or Cloudflare Pages env to override.
+ * Use VITE_API_URL="" when the app is behind the Worker gateway (same-origin API).
  */
 export const API_URL =
-  import.meta.env.VITE_API_URL || "https://family-tree-app.eugene-tawiah.workers.dev";
+  import.meta.env.VITE_API_URL !== undefined
+    ? import.meta.env.VITE_API_URL
+    : "https://family-tree-app.eugene-tawiah.workers.dev";
 
 const R2_PHOTO_ORIGIN = "https://family-tree-photos.family-tree.tawiah.net";
 

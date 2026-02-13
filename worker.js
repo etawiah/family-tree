@@ -2,11 +2,95 @@
  * Family Tree App Worker
  * - POST /api/upload: upload image to R2, return public URL
  * - CORS for family-tree.tawiah.net and localhost
+ * - Optional auth gate: password + Turnstile, 30-day cookie, access log in D1
  *
- * Secrets (set in Cloudflare Dashboard): R2_PUBLIC_URL
+ * Secrets: R2_PUBLIC_URL; for auth gate: AUTH_SECRET, PASSWORD, TURNSTILE_SECRET_KEY
+ * Vars: PAGES_ORIGIN, TURNSTILE_SITE_KEY (when using auth gate)
  */
 
 const MAX_FILE_BYTES = 1024 * 1024; // 1MB
+const AUTH_COOKIE_NAME = "family_tree_sess";
+const SESSION_DAYS = 30;
+
+function base64UrlEncode(bytes) {
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(bytes)));
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlDecode(str) {
+  const b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(b64);
+  return new Uint8Array([...binary].map((c) => c.charCodeAt(0)));
+}
+
+async function hmacSha256(secret, message) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(message)
+  );
+  return new Uint8Array(sig);
+}
+
+async function signCookie(secret, expirySeconds) {
+  const payload = String(expirySeconds);
+  const sig = await hmacSha256(secret, payload);
+  return base64UrlEncode(new TextEncoder().encode(payload)) + "." + base64UrlEncode(sig);
+}
+
+async function verifyCookie(cookieHeader, secret) {
+  if (!cookieHeader || !secret) return false;
+  const match = cookieHeader.match(new RegExp(`${AUTH_COOKIE_NAME}=([^;]+)`));
+  if (!match) return false;
+  const raw = match[1].trim();
+  const dot = raw.indexOf(".");
+  if (dot === -1) return false;
+  const payloadB64 = raw.slice(0, dot);
+  const sigB64 = raw.slice(dot + 1);
+  let payloadStr;
+  try {
+    payloadStr = new TextDecoder().decode(base64UrlDecode(payloadB64));
+  } catch {
+    return false;
+  }
+  const expiry = parseInt(payloadStr, 10);
+  if (Number.isNaN(expiry) || expiry < Math.floor(Date.now() / 1000)) return false;
+  const expectedSig = await hmacSha256(secret, payloadStr);
+  const gotSig = base64UrlDecode(sigB64);
+  if (gotSig.length !== expectedSig.length) return false;
+  return crypto.subtle.timingSafeEqual(gotSig, expectedSig);
+}
+
+function timingSafeEqual(a, b) {
+  const x = new TextEncoder().encode(a);
+  const y = new TextEncoder().encode(b);
+  const len = Math.max(x.length, y.length);
+  let diff = 0;
+  for (let i = 0; i < len; i++) {
+    diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  }
+  return diff === 0 && x.length === y.length;
+}
+
+function getLoginHtml(siteKey, error) {
+  const errMsg = error ? '<p style="color:#dc2626;margin:0 0 0.5rem 0;">Invalid password or captcha. Try again.</p>' : "";
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Family Tree – Sign in</title>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>body{font-family:system-ui,sans-serif;max-width:320px;margin:2rem auto;padding:1rem;} input{width:100%;padding:0.5rem;margin:0.5rem 0;} button{width:100%;padding:0.6rem;margin-top:0.5rem;cursor:pointer;}</style></head>
+<body><h1>Sign in</h1>${errMsg}
+<form method="post" action="/auth/login">
+<input type="password" name="password" placeholder="Password" required autocomplete="current-password">
+<div class="cf-turnstile" data-sitekey="${(siteKey || "").replace(/"/g, "&quot;")}"></div>
+<button type="submit">Sign in</button></form></body></html>`;
+}
 const ALLOWED_TYPES = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -66,6 +150,115 @@ export default {
     }
 
     const url = new URL(request.url);
+    const authGate =
+      env.AUTH_SECRET && env.PASSWORD && env.TURNSTILE_SECRET_KEY && env.PAGES_ORIGIN;
+
+    // POST /auth/login: verify Turnstile + password, log, set cookie, redirect
+    if (authGate && request.method === "POST" && url.pathname === "/auth/login") {
+      try {
+        const contentType = request.headers.get("Content-Type") || "";
+        let password = "";
+        let turnstileToken = "";
+        if (contentType.includes("application/x-www-form-urlencoded")) {
+          const body = await request.clone().text();
+          const params = new URLSearchParams(body);
+          password = params.get("password") || "";
+          turnstileToken = params.get("cf-turnstile-response") || "";
+        }
+        if (!turnstileToken) {
+          const html = getLoginHtml(env.TURNSTILE_SITE_KEY, true);
+          return new Response(html, { status: 400, headers: { "Content-Type": "text/html;charset=utf-8" } });
+        }
+        const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            secret: env.TURNSTILE_SECRET_KEY,
+            response: turnstileToken,
+          }),
+        });
+        const verifyData = await verifyRes.json().catch(() => ({}));
+        if (!verifyData.success) {
+          const html = getLoginHtml(env.TURNSTILE_SITE_KEY, true);
+          return new Response(html, { status: 400, headers: { "Content-Type": "text/html;charset=utf-8" } });
+        }
+        if (!password || !timingSafeEqual(password, env.PASSWORD)) {
+          const html = getLoginHtml(env.TURNSTILE_SITE_KEY, true);
+          return new Response(html, { status: 401, headers: { "Content-Type": "text/html;charset=utf-8" } });
+        }
+        const ip = request.headers.get("CF-Connecting-IP") || "";
+        const country = request.headers.get("CF-IPCountry") || "";
+        const userAgent = request.headers.get("User-Agent") || "";
+        const referer = request.headers.get("Referer") || "";
+        try {
+          await env.DB.prepare(
+            "INSERT INTO access_log (ip, country, user_agent, referer) VALUES (?, ?, ?, ?)"
+          )
+            .bind(ip, country, userAgent, referer)
+            .run();
+        } catch (e) {
+          console.error("access_log insert error:", e);
+        }
+        const expirySeconds = Math.floor(Date.now() / 1000) + SESSION_DAYS * 24 * 60 * 60;
+        const cookieValue = await signCookie(env.AUTH_SECRET, expirySeconds);
+        const host = url.host;
+        const setCookie = `${AUTH_COOKIE_NAME}=${cookieValue}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 24 * 60 * 60}`;
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: "/",
+            "Set-Cookie": setCookie,
+          },
+        });
+      } catch (err) {
+        console.error("auth/login error:", err);
+        const html = getLoginHtml(env.TURNSTILE_SITE_KEY, true);
+        return new Response(html, { status: 500, headers: { "Content-Type": "text/html;charset=utf-8" } });
+      }
+    }
+
+    // When auth gate is on: require valid cookie for /api/* and for app (proxy)
+    if (authGate) {
+      const cookieHeader = request.headers.get("Cookie");
+      const valid = await verifyCookie(cookieHeader, env.AUTH_SECRET);
+      if (url.pathname.startsWith("/api/")) {
+        if (!valid) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json", ...corsHeaders(origin, allowOrigin) },
+          });
+        }
+      } else {
+        if (!valid) {
+          const html = getLoginHtml(env.TURNSTILE_SITE_KEY, false);
+          return new Response(html, {
+            status: 200,
+            headers: { "Content-Type": "text/html;charset=utf-8" },
+          });
+        }
+        const pagesOrigin = (env.PAGES_ORIGIN || "").replace(/\/$/, "");
+        const proxyUrl = pagesOrigin + url.pathname + url.search;
+        const proxyReq = new Request(proxyUrl, {
+          method: request.method,
+          headers: request.headers,
+          body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+          redirect: "follow",
+        });
+        const res = await fetch(proxyReq);
+        const newHeaders = new Headers(res.headers);
+        if (res.status >= 300 && res.status < 400 && newHeaders.get("Location")) {
+          const loc = new URL(newHeaders.get("Location"), proxyUrl);
+          if (loc.origin === pagesOrigin) {
+            newHeaders.set("Location", loc.pathname + loc.search);
+          }
+        }
+        return new Response(res.body, {
+          status: res.status,
+          statusText: res.statusText,
+          headers: newHeaders,
+        });
+      }
+    }
 
     // Tree API (D1): GET returns tree JSON, PUT stores tree JSON
     if (url.pathname === "/api/tree") {

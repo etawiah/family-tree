@@ -14,5 +14,8 @@ binding = "BUCKET"
 bucket_name = "family-tree-photos"
 
 # CORS allowed origins (Pages app + local dev)
+# For auth gate: set PAGES_ORIGIN and TURNSTILE_SITE_KEY (vars); AUTH_SECRET, PASSWORD, TURNSTILE_SECRET_KEY (secrets)
 [vars]
 CORS_ORIGINS = "https://family-tree.tawiah.net,https://family-tree-a6g.pages.dev,https://family-tree-app.pages.dev,https://family-tree-app.eugene-tawiah.workers.dev,http://localhost:5173,http://localhost:5174"
+PAGES_ORIGIN = "https://family-tree.pages.dev"
+TURNSTILE_SITE_KEY = ""
