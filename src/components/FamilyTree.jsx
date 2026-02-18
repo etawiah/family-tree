@@ -38,6 +38,14 @@ function getLocalTree() {
   return [];
 }
 
+/** Format birthday and deathday for card display: "birthday – deathday" when both present, else one or empty. */
+function formatDates(birthday, deathday) {
+  const b = birthday && String(birthday).trim();
+  const d = deathday && String(deathday).trim();
+  if (b && d) return `${b} – ${d}`;
+  return b || d || "";
+}
+
 export default function FamilyTree() {
   const containerRef = useRef(null);
   const [treeData, setTreeData] = useState(null);
@@ -94,9 +102,15 @@ export default function FamilyTree() {
       .setCardDisplay([
         ["first name", "middle name", "last name"],
         ["location"],
-        ["birthday", "deathday"],
+        [(d) => formatDates(d.birthday, d.deathday)],
       ])
-      .setCardImageField("photo");
+      .setCardImageField("photo")
+      .setOnCardUpdate(function onCardUpdate(d) {
+        const cardEl = this.querySelector?.(".card");
+        if (cardEl && d?.data?.data?.deathday) {
+          cardEl.classList.add("card-deceased");
+        }
+      });
 
     const editTree = chart
       .editTree()

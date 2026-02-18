@@ -37,6 +37,17 @@ body {
   height: 100%;
 }
 
+/* Deceased cards: lighter background, font unchanged */
+.f3 div.card-deceased.card-male .card-inner {
+  background-color: color-mix(in srgb, var(--male-color) 72%, white);
+}
+.f3 div.card-deceased.card-female .card-inner {
+  background-color: color-mix(in srgb, var(--female-color) 72%, white);
+}
+.f3 div.card-deceased.card-genderless .card-inner {
+  background-color: color-mix(in srgb, var(--genderless-color) 72%, white);
+}
+
 /* Sidebar view mode: Notes & Bio as multi-line, textarea-like block */
 .f3 .f3-notes-value-view {
   display: block;
