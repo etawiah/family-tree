@@ -102,7 +102,7 @@ export default function FamilyTree() {
       .setCardDisplay([
         ["first name", "middle name", "last name"],
         ["location"],
-        [(d) => formatDates(d.birthday, d.deathday)],
+        [(d) => formatDates(d.data?.birthday, d.data?.deathday)],
       ])
       .setCardImageField("photo")
       .setOnCardUpdate(function onCardUpdate(d) {
