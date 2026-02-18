@@ -48,6 +48,29 @@ body {
   background-color: color-mix(in srgb, var(--genderless-color) 72%, white);
 }
 
+/* Edit/Add form panel: cap height so content scrolls; keep Submit visible (all browsers) */
+.f3 .f3-form-cont {
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.f3 .f3-form-cont.opened {
+  max-height: 100vh;
+  max-height: 100dvh;
+}
+.f3 .f3-form-cont .f3-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.f3 .f3-form-cont .f3-form-buttons {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  background: var(--background-color);
+  flex-shrink: 0;
+}
+
 /* Sidebar view mode: Notes & Bio as multi-line, textarea-like block */
 .f3 .f3-notes-value-view {
   display: block;
