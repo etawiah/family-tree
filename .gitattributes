@@ -1,0 +1,4 @@
+# Normalize line endings so commits are consistent regardless of editor or OS.
+# Repo stores LF; Git converts on checkout per OS (e.g. CRLF on Windows with core.autocrlf).
+# Prevents line-ending-only diffs from AI or other contributors.
+* text=auto eol=lf
