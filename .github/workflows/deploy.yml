@@ -10,7 +10,7 @@ on:
       - main
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22.23.4"
   PAGES_PROJECT_NAME: "family-tree"
 
 jobs:
