@@ -1,0 +1,52 @@
+name = "family-tree-access-requests"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Keep workers.dev and preview URLs off so deploy does not publish a public hostname.
+# Routes are added in the Cloudflare dashboard (CI/deploy tokens may lack routes edit).
+workers_dev = false
+preview_urls = false
+
+# D1 binding: DB
+# Stores only: id, name, email, status, created_at.
+# Create with: wrangler d1 create family-tree-access-requests
+# Then replace the placeholder database_id below and run: npm run d1:setup
+[[d1_databases]]
+binding = "DB"
+database_name = "family-tree-access-requests"
+database_id = "00000000-0000-4000-8000-000000000001"
+
+# Workers Rate Limiting binding: SUBMIT_RATE_LIMITER
+# Per-IP limit on POST /request-access/submit. The IP is passed only as the
+# limit() key and is never written to D1, logs, Telegram, or the Access group.
+# Requires Wrangler >= 4.36. namespace_id must be unique on the account.
+[[ratelimits]]
+name = "SUBMIT_RATE_LIMITER"
+namespace_id = "271101"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
+# Daily purge of approved rows older than 30 days. Denied rows are deleted immediately.
+[triggers]
+crons = ["0 3 * * *"]
+
+[observability]
+enabled = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+
+# Non-secret config. Secrets are set with `wrangler secret put` (see docs/ACCESS-REQUESTS.md).
+# TURNSTILE_SITE_KEY is public (widget site key). ACCESS_TEAM_DOMAIN and ACCESS_AUD
+# identify the Access application used to verify Cf-Access-Jwt-Assertion.
+[vars]
+TURNSTILE_SITE_KEY = ""
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
+ADMIN_EMAILS = ""
+CF_ACCOUNT_ID = ""
+ACCESS_GROUP_ID = ""
+PUBLIC_ORIGIN = "https://family-tree.tawiah.net"
