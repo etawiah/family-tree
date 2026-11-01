@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import * as f3 from "family-chart";
 import "family-chart/styles/family-chart.css";
 import ImageUpload from "./ImageUpload.jsx";
-import { API_URL, getTree, photoDisplayUrl, saveTree } from "../utils/api.js";
+import { ACCESS_SESSION_EXPIRED, API_URL, getTree, photoDisplayUrl, saveTree } from "../utils/api.js";
 
 const STORAGE_KEY = "family-tree-app-data";
 const SAVE_DEBOUNCE_MS = 400;
@@ -77,7 +77,8 @@ export default function FamilyTree() {
           });
           setTreeData(final);
         }
-      } catch (_) {
+      } catch (err) {
+        if (err?.name === ACCESS_SESSION_EXPIRED) return;
         if (!cancelled) setTreeData(defaultData);
       }
     })();

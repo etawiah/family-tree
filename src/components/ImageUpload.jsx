@@ -3,7 +3,8 @@ import imageCompression from "browser-image-compression";
 import { uploadPhoto } from "../utils/api.js";
 
 /**
- * Image upload: when apiUrl is set, uploads to Worker (R2); otherwise converts to base64 (localStorage).
+ * Image upload: when apiUrl is a string (including "" for same-origin /api),
+ * uploads to the Worker (R2); otherwise converts to base64 (localStorage).
  * Supports both existing base64 and http(s) URLs for preview.
  */
 export default function ImageUpload({
@@ -58,7 +59,8 @@ export default function ImageUpload({
         return;
       }
 
-      if (apiUrl) {
+      // Empty string is same-origin /api; only skip Worker upload when apiUrl is omitted.
+      if (typeof apiUrl === "string") {
         setStatus("Uploading...");
         try {
           const url = await uploadPhoto(compressed, (p) => setProgress(50 + Math.round((p * 50) / 100)));
