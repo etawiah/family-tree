@@ -14,6 +14,8 @@ dist-ssr
 
 # Local docs (do not push to GitHub)
 docs/
+!docs/DEPLOYMENT.md
+!docs/ACCESS-REQUESTS.md
 
 # Editor directories and files
 .cursor

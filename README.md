@@ -19,6 +19,8 @@ The frontend (Cloudflare Pages) and API (Cloudflare Worker `family-tree-app`) sh
 
 The Worker is behind **Cloudflare Access** on that host. The `workers.dev` URL (`family-tree-app.eugene-tawiah.workers.dev`) is **disabled**. The frontend calls relative `/api/...` and sends cookies (`credentials: 'same-origin'`) so the `CF_Authorization` Access cookie is included. If Access redirects or returns its login HTML (expired session), the app reloads to re-authenticate.
 
+Visitors who are not on the Access allow list request access at the public path https://family-tree.tawiah.net/request-access (that path must bypass Access). The separate Worker `family-tree-access-requests` pages Eugene on Telegram and, on approve, adds the email to an Access group. See [docs/ACCESS-REQUESTS.md](docs/ACCESS-REQUESTS.md). The existing deploy workflow does not deploy that Worker.
+
 **pages.dev preview builds cannot reach the API.** A `*.pages.dev` origin has no Access session and no Worker route, so `/api/*` will not return tree data. Use the custom domain after signing in through Access.
 
 Photos live in the private R2 bucket `family-tree-photos` and are served at `/api/photo/:filename`. Older rows may still store the retired public hostname `family-tree-photos.family-tree.tawiah.net`; the client rewrites those to the Worker photo URL.

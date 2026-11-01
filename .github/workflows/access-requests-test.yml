@@ -1,0 +1,39 @@
+# Unit tests for the access-requests Worker. Does not deploy.
+name: Access requests tests
+
+on:
+  pull_request:
+    paths:
+      - "access-requests/**"
+      - ".github/workflows/access-requests-test.yml"
+  push:
+    paths:
+      - "access-requests/**"
+      - ".github/workflows/access-requests-test.yml"
+
+env:
+  NODE_VERSION: "22.23.4"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: access-requests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: access-requests/package-lock.json
+
+      - name: Install and test
+        run: |
+          npm ci --no-audit --prefer-offline
+          npm test

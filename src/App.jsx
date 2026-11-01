@@ -7,6 +7,7 @@ function App() {
       <header className="app-header">
         <img src="/logo-fist.png" alt="" className="app-header-logo" />
         <h1>Family Tree (Tawiah – Ocansey)</h1>
+        <a className="app-header-signout" href="/request-access">Request access</a>
       </header>
       <main className="app-main">
         <FamilyTree />

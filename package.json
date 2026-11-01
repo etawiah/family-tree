@@ -11,7 +11,8 @@
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
     "d1:setup": "wrangler d1 execute family-tree-db --remote --file=./scripts/d1-schema.sql",
-    "d1:migrate": "wrangler d1 execute family-tree-db --remote --file=./scripts/d1-migrate-access-log.sql"
+    "d1:migrate": "wrangler d1 execute family-tree-db --remote --file=./scripts/d1-migrate-access-log.sql",
+    "access-requests:test": "npm test --prefix access-requests"
   },
   "dependencies": {
     "browser-image-compression": "^2.0.2",
