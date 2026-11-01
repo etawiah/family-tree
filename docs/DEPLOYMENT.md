@@ -2,6 +2,16 @@
 
 The GitHub Action **Deploy to Cloudflare** builds the frontend, deploys the Worker, then deploys Pages. If a run fails, open the run and check the **first failed step** and its log.
 
+## Same-origin API and Cloudflare Access
+
+Production is **same origin**: Pages serves https://family-tree.tawiah.net and the Worker handles `family-tree.tawiah.net/api/*` (see `routes` in `wrangler.toml`). Cloudflare Access sits in front of that host. The `workers.dev` URL is off (`workers_dev = false`, `preview_urls = false`) so CI `wrangler deploy` does not re-enable it.
+
+The frontend is built with an empty `VITE_API_URL` and calls relative `/api/...` with cookies, so the Access `CF_Authorization` cookie is sent. An expired Access session shows up as a 302 / opaque redirect or HTML login page; the client reloads to re-auth instead of treating that as JSON.
+
+**pages.dev preview deployments cannot reach the API.** There is no Worker route or Access session on `*.pages.dev`. Use https://family-tree.tawiah.net after signing in.
+
+**R2:** the bucket name `family-tree-photos` is private. Do not treat `family-tree-photos.family-tree.tawiah.net` as a live public host; the client only rewrites leftover stored URLs to `/api/photo/:file`.
+
 ## Required secrets
 
 In the repo: **Settings → Secrets and variables → Actions**, add:
@@ -68,18 +78,32 @@ This means the token is rejected by Cloudflare’s API when the Pages action run
 
 ### Tree shows only sample data (single “Eugene Tawiah” entry)
 
-**Data is not wiped.** The tree is stored in D1 and the Worker returns it. This usually means the **frontend was built with the wrong API URL**, so the app calls the Pages origin (e.g. `family-tree.tawiah.net/api/tree`) instead of the Worker; it gets HTML or 404 and falls back to the sample.
+**Data is not wiped.** The tree is stored in D1 and the Worker returns it. The app falls back to sample data when `/api/tree` is not JSON (network error, 404, or HTML).
 
-**Fix:** The deploy workflow now defaults `VITE_API_URL` to the Worker URL when the repo variable is not set. Re-run the **Deploy to Cloudflare** workflow (or push a small change) so the frontend is rebuilt; then hard-refresh the site. The full tree will load.
+Common causes after the Access lockdown:
 
-**If you set `VITE_API_URL` to empty** (for the password gate / same-origin): the app must be served by the Worker on your domain so `/api/tree` hits the Worker. Until the domain is moved from Pages to the Worker, leave the variable unset so the build uses the Worker API URL and the tree loads.
+- You are on a **pages.dev** preview. Those builds cannot reach the Access-protected API. Open https://family-tree.tawiah.net after signing in.
+- Access session expired. Reload so Cloudflare Access can re-authenticate (`CF_Authorization` cookie).
+- The Worker route `family-tree.tawiah.net/api/*` is missing (a deploy without `routes` in `wrangler.toml` can drop it). Confirm **Workers & Pages → family-tree-app → Triggers**.
+- The frontend was built with a stale `VITE_API_URL` pointing at `*.workers.dev` (that hostname is off). The deploy workflow now defaults `VITE_API_URL` to empty so requests stay on `/api/...`. Re-run **Deploy to Cloudflare** and hard-refresh.
 
 **Optional: Check D1**
 
 - **Workers & Pages** → **D1** → **family-tree-db** → **Query**: `SELECT key, length(value) AS value_len, updated_at FROM tree;`
-- If you see a row with `key = 'data'` and a large `value_len`, the data is in D1 and the issue was the frontend build (see above).
+- If you see a row with `key = 'data'` and a large `value_len`, the data is in D1 and the issue is the request path or Access, not a wipe.
 
-**If D1 really has no tree row** (e.g. after running `npm run d1:setup`, which drops the table), restore from a backup with `curl -X PUT "https://family-tree-app.eugene-tawiah.workers.dev/api/tree" -H "Content-Type: application/json" -d @your-tree-backup.json`. Cloudflare D1 also supports [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/) (restore to a point in the last 7–30 days) if the table was dropped by mistake.
+**If D1 really has no tree row** (e.g. after running `npm run d1:setup`, which drops the table), restore from a backup against the Access-protected route (the `workers.dev` URL is disabled):
+
+```bash
+# Requires a valid Access service token or a CF_Authorization cookie from a signed-in session.
+curl -X PUT "https://family-tree.tawiah.net/api/tree" \
+  -H "Content-Type: application/json" \
+  -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+  -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+  -d @your-tree-backup.json
+```
+
+Cloudflare D1 also supports [Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/) (restore to a point in the last 7–30 days) if the table was dropped by mistake.
 
 ---
 
@@ -147,9 +171,9 @@ So that the login page and app are served from the same place:
 
 Then open the app via that domain (not the raw Pages URL). Visitors see the password page first; after signing in they get a 30-day cookie and can use the app.
 
-### 5. Build for the gateway
+### 5. Build for same-origin (required in production)
 
-When the app is served by the Worker on your custom domain, the frontend must call the API on the same origin. Set **`VITE_API_URL`** to empty so the built app uses relative URLs and the auth cookie is sent:
+The frontend must call the API on the same origin so Access cookies are sent. Leave **`VITE_API_URL`** empty (the deploy workflow already defaults to `''`).
 
-- **GitHub Actions:** In the repo go to **Settings → Secrets and variables → Actions** → **Variables** → **New repository variable**. Name: `VITE_API_URL`, Value: leave empty (or a single space then delete the space so it’s blank). The workflow uses this for the build step.
-- Alternatively, in your build command you can run `VITE_API_URL= npm run build` (or the equivalent in your CI).
+- **GitHub Actions:** do not set repo variable `VITE_API_URL` unless you need an override. An empty var is treated as unset by `||`, and the fallback is `''`.
+- Local override: `VITE_API_URL=http://localhost:8787 npm run dev` while `npm run worker:dev` is running.

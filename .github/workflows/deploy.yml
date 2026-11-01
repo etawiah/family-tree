@@ -42,8 +42,9 @@ jobs:
       - name: Build frontend
         run: npm run build
         env:
-          # Default to Worker API URL so the tree loads when app is on Pages. Set repo var VITE_API_URL to "" for same-origin when the password gate is active (domain on Worker).
-          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://family-tree-app.eugene-tawiah.workers.dev' }}
+          # Empty default = same-origin /api/* (family-tree.tawiah.net behind Access).
+          # `||` treats an empty repo var as unset, so the fallback itself must be ''.
+          VITE_API_URL: ${{ vars.VITE_API_URL || '' }}
 
       - name: Verify build output
         run: |
