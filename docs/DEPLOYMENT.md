@@ -4,7 +4,7 @@ The GitHub Action **Deploy to Cloudflare** builds the frontend, deploys the Work
 
 ## Same-origin API and Cloudflare Access
 
-Production is **same origin**: Pages serves https://family-tree.tawiah.net and the Worker handles `family-tree.tawiah.net/api/*` (see `routes` in `wrangler.toml`). Cloudflare Access sits in front of that host. The `workers.dev` URL is off (`workers_dev = false`, `preview_urls = false`) so CI `wrangler deploy` does not re-enable it.
+Production is **same origin**: Pages serves https://family-tree.tawiah.net and the Worker handles `family-tree.tawiah.net/api/*`. That route is managed in the Cloudflare dashboard (Workers & Pages → family-tree-app → Triggers), not in `wrangler.toml`, because the CI token cannot edit Workers Routes. Cloudflare Access sits in front of that host. The `workers.dev` URL is off (`workers_dev = false`, `preview_urls = false`) so CI `wrangler deploy` does not re-enable it.
 
 The frontend is built with an empty `VITE_API_URL` and calls relative `/api/...` with cookies, so the Access `CF_Authorization` cookie is sent. An expired Access session shows up as a 302 / opaque redirect or HTML login page; the client reloads to re-auth instead of treating that as JSON.
 
@@ -61,6 +61,9 @@ This means the token is rejected by Cloudflare’s API when the Pages action run
 ### Worker deploy: "No bucket named ..." / R2 error
 - The R2 bucket `family-tree-photos` must exist in the same Cloudflare account. Create it in **R2** in the dashboard if needed.
 
+### Worker deploy: routes / "You are missing the workers.routes edit permission"
+The CI token can deploy the Worker script but cannot edit Workers Routes. Do **not** put `routes` in `wrangler.toml`; keep `family-tree.tawiah.net/api/*` → **family-tree-app** in the dashboard (**Workers & Pages → family-tree-app → Triggers**). `wrangler.toml` only sets `workers_dev = false` and `preview_urls = false`.
+
 ### Worker deploy: other wrangler errors
 - Check the full log of the **Deploy Worker** step. If it says "binding" or "config", fix `wrangler.toml` (e.g. bucket name, main file path).
 
@@ -84,7 +87,7 @@ Common causes after the Access lockdown:
 
 - You are on a **pages.dev** preview. Those builds cannot reach the Access-protected API. Open https://family-tree.tawiah.net after signing in.
 - Access session expired. Reload so Cloudflare Access can re-authenticate (`CF_Authorization` cookie).
-- The Worker route `family-tree.tawiah.net/api/*` is missing (a deploy without `routes` in `wrangler.toml` can drop it). Confirm **Workers & Pages → family-tree-app → Triggers**.
+- The Worker route `family-tree.tawiah.net/api/*` is missing. It is dashboard-managed (the CI token cannot edit routes). Confirm **Workers & Pages → family-tree-app → Triggers**.
 - The frontend was built with a stale `VITE_API_URL` pointing at `*.workers.dev` (that hostname is off). The deploy workflow now defaults `VITE_API_URL` to empty so requests stay on `/api/...`. Re-run **Deploy to Cloudflare** and hard-refresh.
 
 **Optional: Check D1**
