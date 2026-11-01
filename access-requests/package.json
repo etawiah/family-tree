@@ -11,7 +11,7 @@
     "d1:setup": "wrangler d1 execute family-tree-access-requests --remote --file=./schema.sql"
   },
   "devDependencies": {
-    "vitest": "^3.2.4",
+    "vitest": "^4.1.11",
     "wrangler": "^4.45.0"
   }
 }
