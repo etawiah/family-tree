@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRequestAlert, buildSignedAdminUrl } from "../src/telegram.js";
+import { buildRequestAlert, buildSignedAdminUrl, publicOrigin } from "../src/telegram.js";
 
 describe("Telegram approve/deny buttons", () => {
   it("builds Access-admin URLs with id, exp, and HMAC query params", () => {
@@ -33,5 +33,12 @@ describe("Telegram approve/deny buttons", () => {
     expect(row[1].callback_data).toBeUndefined();
     expect(payload.text).toContain("Ada");
     expect(payload.text).toContain("ada@example.com");
+  });
+
+  it("trims trailing slashes from PUBLIC_ORIGIN", () => {
+    expect(publicOrigin({ PUBLIC_ORIGIN: "https://family-tree.tawiah.net///" })).toBe(
+      "https://family-tree.tawiah.net"
+    );
+    expect(publicOrigin({})).toBe("https://family-tree.tawiah.net");
   });
 });

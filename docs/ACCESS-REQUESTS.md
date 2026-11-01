@@ -65,7 +65,7 @@ Set secrets from `access-requests/` with `npx wrangler secret put <NAME>` (or Wo
 | `TURNSTILE_SITE_KEY` | Public Turnstile widget site key |
 | `ACCESS_TEAM_DOMAIN` | Team domain, e.g. `https://<team>.cloudflareaccess.com` |
 | `ACCESS_AUD` | Application Audience (AUD) tag of the **main** family-tree Access app |
-| `ADMIN_EMAILS` | Comma-separated admin emails (Eugene’s addresses) |
+| `ADMIN_EMAILS` | Comma-separated admin emails and/or `@domain` entries. `@eugenetawiah.com` matches any address at that exact domain (case-insensitive), not subdomains. Example: `eugene@gmail.com,@eugenetawiah.com` |
 | `CF_ACCOUNT_ID` | Cloudflare account ID |
 | `ACCESS_GROUP_ID` | UUID of the Access group that approved visitors are added to |
 | `PUBLIC_ORIGIN` | `https://family-tree.tawiah.net` (used to build Telegram URL buttons) |
@@ -118,9 +118,11 @@ Create a **separate** Access application whose path is more specific than the ho
 
 Until this Bypass app exists, visitors never see the form: Access shows the email OTP login instead.
 
-Identity: **One-time PIN** (email) on the main app. Approved users get a code at the address Eugene approved.
+Identity: **One-time PIN** (email) is already the account’s only IdP. No IdP change is needed. Approved users get a code at the address Eugene approved.
 
 ## Turnstile widget
+
+An existing Turnstile widget named **family-tree** may be reused (same site key and secret). To create a new one instead:
 
 1. Cloudflare dashboard → **Turnstile** → Add widget.
 2. Hostname: `family-tree.tawiah.net` (add `localhost` only if you local-dev the form).

@@ -1,7 +1,9 @@
+import { stripTrailingSlashes } from "./crypto.js";
+
 const PUBLIC_ORIGIN = "https://family-tree.tawiah.net";
 
 export function publicOrigin(env) {
-  const fromEnv = String(env?.PUBLIC_ORIGIN || "").trim().replace(/\/+$/, "");
+  const fromEnv = stripTrailingSlashes(String(env?.PUBLIC_ORIGIN || "").trim());
   return fromEnv || PUBLIC_ORIGIN;
 }
 

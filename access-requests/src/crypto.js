@@ -78,3 +78,11 @@ export async function verifyAction(secret, { action, id, exp, sig }, nowMs = Dat
 export function expiryUnixSeconds(nowMs = Date.now(), ttlSeconds = ACTION_TTL_SECONDS) {
   return Math.floor(nowMs / 1000) + ttlSeconds;
 }
+
+// Linear-time trailing-slash trim (avoids a polynomial regex on untrusted input).
+export function stripTrailingSlashes(value) {
+  const text = String(value ?? "");
+  let end = text.length;
+  while (end > 0 && text[end - 1] === "/") end -= 1;
+  return text.slice(0, end);
+}

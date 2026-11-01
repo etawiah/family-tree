@@ -61,4 +61,23 @@ describe("admin emails", () => {
     expect(isAdminEmail("visitor@example.com", "eugene@example.com")).toBe(false);
     expect(isAdminEmail("", "eugene@example.com")).toBe(false);
   });
+
+  it("matches any address at an exact @domain entry", () => {
+    const allow = "@eugenetawiah.com, eugene@gmail.com";
+    expect(isAdminEmail("ada@eugenetawiah.com", allow)).toBe(true);
+    expect(isAdminEmail("ADA@EugeneTawiah.COM", allow)).toBe(true);
+    expect(isAdminEmail("eugene@gmail.com", allow)).toBe(true);
+  });
+
+  it("does not treat @domain as a suffix match", () => {
+    const allow = "@eugenetawiah.com";
+    expect(isAdminEmail("ada@mail.eugenetawiah.com", allow)).toBe(false);
+    expect(isAdminEmail("ada@eugenetawiah.com.evil", allow)).toBe(false);
+    expect(isAdminEmail("ada@example.com", allow)).toBe(false);
+    expect(isAdminEmail("eugenetawiah.com@example.com", allow)).toBe(false);
+  });
+
+  it("ignores a bare @ with no domain", () => {
+    expect(isAdminEmail("ada@eugenetawiah.com", "@")).toBe(false);
+  });
 });

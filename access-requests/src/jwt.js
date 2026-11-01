@@ -1,11 +1,11 @@
-import { base64UrlDecode } from "./crypto.js";
+import { base64UrlDecode, stripTrailingSlashes } from "./crypto.js";
 import { isAdminEmail, normalizeEmail } from "./validation.js";
 
 const JWKS_TTL_MS = 60 * 60 * 1000;
 let jwksCache = { fetchedAt: 0, keys: null, url: "" };
 
 export function normalizeTeamDomain(teamDomain) {
-  const raw = String(teamDomain ?? "").trim().replace(/\/+$/, "");
+  const raw = stripTrailingSlashes(String(teamDomain ?? "").trim());
   if (!raw) return "";
   if (/^https?:\/\//i.test(raw)) return raw;
   return `https://${raw}`;

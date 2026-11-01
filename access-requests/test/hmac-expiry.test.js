@@ -4,6 +4,7 @@ import {
   expiryUnixSeconds,
   isExpired,
   signAction,
+  stripTrailingSlashes,
   verifyAction,
 } from "../src/crypto.js";
 
@@ -104,5 +105,15 @@ describe("action expiry", () => {
       51_000
     );
     expect(result).toEqual({ ok: false, reason: "expired" });
+  });
+});
+
+describe("stripTrailingSlashes", () => {
+  it("trims one or many trailing slashes without a regex", () => {
+    expect(stripTrailingSlashes("https://example.com/")).toBe("https://example.com");
+    expect(stripTrailingSlashes("https://example.com///")).toBe("https://example.com");
+    expect(stripTrailingSlashes("/access-admin/")).toBe("/access-admin");
+    expect(stripTrailingSlashes("/")).toBe("");
+    expect(stripTrailingSlashes("noslash")).toBe("noslash");
   });
 });

@@ -44,7 +44,17 @@ export function parseAdminEmails(csv) {
 export function isAdminEmail(email, adminEmailsCsv) {
   const needle = normalizeEmail(email);
   if (!needle) return false;
-  return parseAdminEmails(adminEmailsCsv).includes(needle);
+  const at = needle.lastIndexOf("@");
+  if (at <= 0 || at === needle.length - 1) return false;
+  const domainEntry = needle.slice(at);
+  for (const entry of parseAdminEmails(adminEmailsCsv)) {
+    if (entry.startsWith("@") && entry.length > 1) {
+      if (entry === domainEntry) return true;
+      continue;
+    }
+    if (entry === needle) return true;
+  }
+  return false;
 }
 
 export { MAX_NAME_LENGTH, MAX_EMAIL_LENGTH };

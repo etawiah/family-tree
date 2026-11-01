@@ -1,6 +1,7 @@
 import {
   expiryUnixSeconds,
   signAction,
+  stripTrailingSlashes,
   verifyAction,
 } from "./crypto.js";
 import { validateSubmission } from "./validation.js";
@@ -358,7 +359,7 @@ async function purgeApproved(env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const path = url.pathname.replace(/\/+$/, "") || "/";
+    const path = stripTrailingSlashes(url.pathname) || "/";
 
     if (request.method === "GET" && path === "/request-access") {
       return requestAccessPage(env.TURNSTILE_SITE_KEY);
